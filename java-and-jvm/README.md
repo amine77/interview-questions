@@ -2,7 +2,7 @@
 
 > Java 8-21, Virtual Threads, GC, JIT, concurrency, memory leaks, thread dumps
 
-**100 questions**
+**151 questions**
 
 ---
 
@@ -505,3 +505,258 @@
 `🟠 Intermédiaire` · Sujet : **Optimisation Java**
 
 **Réponse :** JFR en continu avec enregistrement circulaire, async-profiler (échantillonnage précis, sans biais de safepoint, flame graphs CPU/allocations/verrous), `jcmd` pour thread dumps et diagnostics ponctuels, métriques Micrometer exposées à Prometheus (GC, pools, latences). Éviter les profileurs par instrumentation en production. Corréler les flame graphs avec les traces distribuées pour cibler le bon service.
+
+### 101. Qu'est-ce que la JVM, le JDK et le JRE ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** JVM : la machine virtuelle qui exécute le bytecode (classes chargées, JIT, GC). JRE : JVM + bibliothèques standard pour exécuter des programmes (plus distribué séparément depuis Java 11 ; on crée un runtime avec `jlink`). JDK : JRE + outils de développement (`javac`, `jar`, `jshell`, `jcmd`, `jfr`). Distributions : Temurin, Corretto, Zulu, Oracle, GraalVM.
+
+### 102. Quel est le cycle de vie d'une classe dans la JVM (chargement, liaison, initialisation) ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** Chargement par un class loader (bootstrap, platform, application, hiérarchie parent-first), liaison (vérification du bytecode, préparation des champs statiques, résolution des références), initialisation (blocs `static`, exécutée paresseusement au premier usage actif). Comprendre l'ordre explique les `NoClassDefFoundError`, `ExceptionInInitializerError` et le holder idiom pour les singletons.
+
+### 103. Différence entre `String`, `StringBuilder` et comment `String` est-elle stockée ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** `String` est immuable (sûre, partageable, hashCode mis en cache, pool de littéraux) ; depuis Java 9, les chaînes Latin-1 sont stockées en `byte[]` compact. `StringBuilder` est mutable pour les concaténations en boucle. La concaténation `a + b` est compilée via `invokedynamic` (`StringConcatFactory`) et est efficace pour une expression unique.
+
+### 104. Que sont les génériques et l'effacement de type (type erasure) ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** Les génériques apportent la sûreté de type à la compilation (`List<String>`). À l'exécution, le type paramétré est effacé (`List`), d'où : pas de `new T()`, pas de `T[]`, pas d'`instanceof List<String>`, et des avertissements « unchecked ». Les jokers `? extends T` (lecture, covariant) et `? super T` (écriture, contravariant) suivent la règle PECS (Producer Extends, Consumer Super).
+
+### 105. Différence entre surcharge (overloading) et redéfinition (overriding) ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** Surcharge : même nom, paramètres différents, résolue à la compilation selon les types statiques des arguments. Redéfinition : même signature dans une sous-classe, résolue à l'exécution (polymorphisme) ; `@Override` protège contre les fautes de frappe ; contraintes : visibilité non réduite, type de retour covariant, exceptions checked non élargies. Les méthodes `static`, `private` et `final` ne se redéfinissent pas.
+
+### 106. Qu'est-ce que `final`, `finally` et `finalize` ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** `final` : variable non réassignable, méthode non redéfinissable, classe non héritable. `finally` : bloc exécuté après `try`/`catch` (nettoyage), remplacé le plus souvent par try-with-resources. `finalize()` : méthode appelée avant la collecte d'un objet, dépréciée pour suppression (imprévisible, coûteuse) ; utiliser `Cleaner` ou `AutoCloseable`.
+
+### 107. Comment fonctionne try-with-resources ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** Toute ressource `AutoCloseable` déclarée dans `try (var in = ...)` est fermée automatiquement en ordre inverse, même en cas d'exception ; les exceptions de fermeture sont attachées en « suppressed ». Depuis Java 9, on peut utiliser une variable effectivement finale existante. Il élimine les fuites de fichiers, connexions et sockets.
+
+### 108. Différence entre `throw` et `throws`, et comment créer une exception personnalisée ?
+`🟢 Débutant` · Sujet : **Java**
+
+**Réponse :** `throw` lève une exception ; `throws` déclare qu'une méthode peut en propager une (obligatoire pour les checked). Exception personnalisée : étendre `RuntimeException` (unchecked, recommandé pour les erreurs métier), fournir message et cause (chaînage), éventuellement un code d'erreur ; ne pas multiplier les hiérarchies, et documenter quand elle est levée.
+
+### 109. Qu'est-ce que le chaînage d'exceptions et pourquoi ne jamais perdre la cause ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `new ServiceException("Paiement refusé", cause)` conserve la trace d'origine (`getCause()`, affichée « Caused by »). Avaler une exception (`catch (Exception e) {}`) ou relancer sans la cause supprime l'information de diagnostic. Attraper précisément, journaliser une seule fois au bon niveau, et convertir les exceptions techniques en exceptions métier à la frontière des couches.
+
+### 110. Que sont les classes imbriquées, internes, anonymes et locales, et leurs différences ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Statique imbriquée : sans référence à l'instance externe (préférée). Interne (non statique) : capture `Outer.this`, peut provoquer des fuites mémoire si elle survit à l'objet externe. Locale : définie dans une méthode. Anonyme : implémentation en ligne, remplacée par les lambdas pour les interfaces fonctionnelles. Les records et enums imbriqués sont implicitement statiques.
+
+### 111. Qu'est-ce qu'un `enum` en Java et quelles fonctionnalités avancées offre-t-il ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Une classe avec un nombre fixe d'instances : champs, constructeurs, méthodes, implémentation d'interfaces, méthodes abstraites par constante (stratégie), `EnumMap`/`EnumSet` très performants, `values()`, `valueOf`, `switch` exhaustif avec pattern matching. Un enum est thread-safe et sérialisable par nom ; ne pas dépendre de `ordinal()` pour la persistance.
+
+### 112. Comment fonctionne le pattern matching pour `instanceof` et `switch` (Java 16-21) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `if (obj instanceof String s && s.length() > 3)` déclare et teste en une fois. `switch` accepte des patterns de type, des record patterns déconstruisant (`case Point(int x, int y)`), des gardes `when`, `null`, et impose l'exhaustivité sur les sealed types, sans `default` nécessaire : le compilateur signale les cas manquants lors d'une évolution du modèle.
+
+### 113. Comment combiner `sealed`, `record` et `switch` pour modéliser un domaine ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `sealed interface Payment permits Card, Transfer, Cash` avec des records immuables pour chaque variante ; un `switch` exhaustif traite chaque cas de façon typée (somme de types algébriques). Cela remplace les hiérarchies avec `instanceof` en cascade et le pattern Visitor, rend les états illégaux non représentables et sécurise les évolutions.
+
+### 114. Que sont les text blocks, `var`, et les switch expressions ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `var` (Java 10) : inférence de type local, lisibilité quand le type est évident. Text blocks (Java 15) : chaînes multi-lignes `"""` avec gestion de l'indentation (JSON, SQL). Switch expressions (Java 14) : `int n = switch (day) { case MON, TUE -> 1; default -> { yield 0; } };` sans fall-through ni `break`.
+
+### 115. Qu'est-ce que le système de modules (JPMS) et est-il obligatoire ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `module-info.java` déclare `requires`, `exports`, `opens`, `provides/uses` pour encapsuler fortement les packages et expliciter les dépendances. Il n'est pas obligatoire (classpath classique fonctionne), mais il permet `jlink` (runtime minimal) et une meilleure encapsulation. Les frameworks à réflexion nécessitent `opens` ; beaucoup d'applications restent sur le classpath avec des jars « automatiques ».
+
+### 116. Qu'est-ce que la réflexion, ses usages et ses coûts ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Class`, `Method`, `Field` permettent d'inspecter et invoquer dynamiquement (frameworks DI, sérialisation, tests). Coûts : plus lent que l'appel direct (mitigé par `MethodHandle`), contourne l'encapsulation (`setAccessible`, bloqué par les modules), incompatible avec Native Image sans hints. Alternatives : génération de code à la compilation (annotation processors, records), `MethodHandles`, ou la configuration explicite.
+
+### 117. Comment fonctionne la sérialisation Java native et pourquoi l'éviter ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Serializable` + `ObjectOutputStream` écrit le graphe d'objets en binaire propriétaire. Problèmes : failles de désérialisation (exécution de code via gadget chains), fragilité aux changements de classe (`serialVersionUID`), non interopérable. Préférer JSON/Protobuf/Avro ; si nécessaire, filtrer avec `ObjectInputFilter` (JEP 290). Les records sont sérialisables de façon plus sûre (constructeur canonique).
+
+### 118. Que sont `equals`/`hashCode`/`compareTo` cohérents et pourquoi les records les génèrent-ils ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `equals` doit être réflexif, symétrique, transitif, cohérent avec `hashCode` (objets égaux → même hash) ; `compareTo` idéalement cohérent avec `equals`. Les erreurs cassent `HashMap`, `HashSet`, `TreeMap`. Les records génèrent ces méthodes sur tous les composants ; pour les entités JPA, baser sur un identifiant métier ou l'id une fois assigné, jamais sur des collections lazy.
+
+### 119. Comment fonctionnent les collections immuables (`List.of`, `Collections.unmodifiableList`, `Stream.toList`) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `List.of`/`Map.of` (Java 9) créent des collections réellement immuables, compactes, refusant `null` et les modifications (`UnsupportedOperationException`). `Collections.unmodifiableList` est une vue en lecture seule sur une liste qui peut encore changer par ailleurs. `List.copyOf` et `Stream.toList()` copient en immuable. Retourner des collections immuables protège les invariants des objets.
+
+### 120. Qu'est-ce que le fail-fast et `ConcurrentModificationException` ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Les itérateurs des collections standard détectent une modification structurelle pendant l'itération (compteur `modCount`) et lèvent `ConcurrentModificationException`, même en mono-thread (supprimer dans un `for-each`). Solutions : `iterator.remove()`, `removeIf`, itérer sur une copie, ou collections concurrentes (weakly consistent) en multi-thread.
+
+### 121. Comment choisir entre `HashMap`, `ConcurrentHashMap`, `TreeMap`, `EnumMap`, `WeakHashMap` ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `HashMap` : usage général mono-thread, O(1). `ConcurrentHashMap` : partagé entre threads, opérations atomiques `compute`/`merge`. `TreeMap` : ordre trié, requêtes par plage (`headMap`, `ceilingKey`), O(log n). `EnumMap` : clés enum, tableau interne très rapide. `WeakHashMap` : clés référencées faiblement, caches de métadonnées libérables par le GC. `LinkedHashMap` avec `removeEldestEntry` : LRU simple.
+
+### 122. Que sont les références faibles, douces et fantômes ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `SoftReference` : libérée seulement sous pression mémoire (caches). `WeakReference` : libérée à la prochaine collecte dès qu'aucune référence forte n'existe (`WeakHashMap`, listeners). `PhantomReference` + `ReferenceQueue` : notification après finalisation pour nettoyage de ressources natives (`Cleaner`). En pratique, préférer Caffeine aux caches maison à références douces.
+
+### 123. Comment fonctionne l'API `java.nio.file` (Files, Path) et pourquoi préférer NIO à `java.io.File` ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Path`/`Files` offrent des opérations atomiques et explicites (`Files.readString`, `writeString`, `walk`, `lines` en stream, `createTempFile`, `move` avec `ATOMIC_MOVE`), des exceptions précises (`NoSuchFileException`), les attributs et les liens symboliques, et `WatchService`. `File` renvoie souvent `false` sans expliquer l'échec. Toujours fermer les streams de `Files.lines`/`walk` (try-with-resources).
+
+### 124. Qu'est-ce que le `HttpClient` standard (Java 11+) et comment l'utiliser ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Client HTTP/1.1 et HTTP/2 intégré, synchrone (`send`) ou asynchrone (`sendAsync` → `CompletableFuture`), avec `BodyHandlers` (string, file, stream), timeouts, redirections, authentification, WebSocket. Un client par application (réutilisation des connexions), timeouts obligatoires, et il sert de connecteur à `RestClient` Spring. Il remplace `HttpURLConnection`.
+
+### 125. Comment fonctionnent les annotations et les annotation processors ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Une annotation est une métadonnée (`@Retention` SOURCE/CLASS/RUNTIME, `@Target`) lue par réflexion (frameworks) ou par un processor à la compilation (`javax.annotation.processing`) qui génère du code : Lombok (modifie l'AST, controversé), MapStruct (mappers), Immutables, Dagger, les Q-classes Querydsl, la métadonnée Spring Boot. La génération à la compilation évite le coût de la réflexion à l'exécution.
+
+### 126. Qu'est-ce que `Optional` dans la conception d'API et les alternatives pour les erreurs ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Optional` exprime l'absence, pas l'échec. Pour les résultats pouvant échouer avec une raison, utiliser des exceptions (cas exceptionnels), un type résultat (`sealed interface Result permits Ok, Err`), ou Vavr `Either`/`Try`. Une API cohérente : `Optional` pour les recherches par identifiant, exceptions pour les violations d'invariants, `Result` pour les validations métier multiples.
+
+### 127. Comment concevoir une classe immuable et pourquoi ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Champs `private final`, pas de setters, initialisation complète dans le constructeur avec validation, copies défensives des entrées/sorties mutables (dates, collections → `List.copyOf`), classe `final` ou record. Bénéfices : thread-safety gratuite, simplicité de raisonnement, clés de map sûres, partage sans copie. Les records sont la forme idiomatique depuis Java 16.
+
+### 128. Qu'est-ce que le principe « composition over inheritance » en Java ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Privilégier la délégation à des objets composants plutôt que l'héritage, qui couple fortement, expose les détails de la superclasse (fragile base class) et n'est pas multiple. Utiliser des interfaces (avec méthodes `default` si besoin), des records composant d'autres records, le pattern Decorator. Réserver l'héritage aux vraies relations « est-un » avec classes conçues pour l'extension (ou `sealed`).
+
+### 129. Comment fonctionne `Comparable` vs `Comparator` et les pièges du tri ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Comparable` définit l'ordre naturel dans la classe (une seule façon) ; `Comparator` définit des ordres externes multiples. Pièges : `compareTo` incohérent avec `equals` (TreeSet supprime des éléments), soustraction d'entiers pour comparer (overflow : utiliser `Integer.compare`), non-transitivité, `null` non géré (`Comparator.nullsLast`). `List.sort` est stable (TimSort).
+
+### 130. Comment fonctionne le boxing et quels pièges avec `Integer` ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Integer a = 127, b = 127; a == b` est vrai (cache -128..127) mais faux pour 128 : toujours `equals` ou `intValue`. `Integer` nul déballé → `NullPointerException` ; boxing dans les boucles alloue et ralentit (préférer `int`, `IntStream`, `mapToInt`). `Long` et `Integer` ne sont pas égaux même pour la même valeur numérique.
+
+### 131. Qu'est-ce que `BigDecimal` et pourquoi ne jamais utiliser `double` pour l'argent ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `double` est binaire flottant : 0.1 + 0.2 ≠ 0.3, arrondis cumulatifs. `BigDecimal` représente exactement les décimaux avec échelle et arrondi contrôlés (`setScale(2, RoundingMode.HALF_EVEN)`), à construire depuis une chaîne ou `valueOf` (jamais `new BigDecimal(0.1)`), comparé avec `compareTo` (pas `equals`, qui tient compte de l'échelle). Stocker en `NUMERIC`/`DECIMAL` en base.
+
+### 132. Comment gérer les nombres aléatoires et la cryptographie de base en Java ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `ThreadLocalRandom`/`RandomGenerator` (Java 17, algorithmes sélectionnables) pour le non sécurisé ; `SecureRandom` pour les jetons, sels, identifiants sensibles. Hachage de mots de passe via Argon2/bcrypt (bibliothèques), `MessageDigest` (SHA-256) pour l'intégrité, `Mac` (HMAC), `Cipher` AES-GCM avec IV unique pour le chiffrement, `KeyStore` pour les clés. Ne jamais inventer sa cryptographie.
+
+### 133. Comment lire et manipuler du JSON en Java (Jackson, Gson, JSON-B) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Jackson (standard Spring) : `ObjectMapper` unique, `readValue`/`writeValueAsString`, annotations `@JsonProperty`, `@JsonIgnore`, `@JsonCreator` pour les records/immuables, modules `JavaTimeModule`, `TypeReference` pour les génériques, streaming `JsonParser` pour les gros documents, `JsonNode` pour l'arbre. Jackson 3 (2025) change le package (`tools.jackson`) et les défauts (dates ISO).
+
+### 134. Qu'est-ce que Lombok, ses avantages et ses inconvénients ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Il génère getters, setters, constructeurs, `equals`/`hashCode`, builders, logs via annotations. Avantages : moins de code. Inconvénients : magie sur l'AST (dépendance à la version du compilateur), `@Data` sur des entités JPA (equals/hashCode dangereux), `@Builder` masquant les invariants, lisibilité pour les nouveaux. Depuis les records et `var`, son intérêt diminue ; beaucoup d'équipes le limitent à `@Builder`/`@Slf4j` ou l'abandonnent.
+
+### 135. Comment fonctionne la journalisation en Java (SLF4J, Logback, Log4j2) et les bonnes pratiques ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** SLF4J est la façade ; Logback (défaut Spring Boot) ou Log4j2 l'implémentation. Bonnes pratiques : paramètres `{}` (pas de concaténation), niveaux cohérents, logs structurés JSON en production, MDC pour le contexte (traceId, tenant), pas de données sensibles, appenders asynchrones, exclure les doubles bindings. Éviter `System.out` et `e.printStackTrace()`.
+
+### 136. Comment écrire de bons tests unitaires en Java (JUnit 5, Mockito, AssertJ) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** JUnit 5 : `@Test`, `@ParameterizedTest` (`@CsvSource`, `@MethodSource`), `@Nested` pour structurer, `@DisplayName`, extensions. Mockito : mocks des dépendances (`when`/`verify`), `@ExtendWith(MockitoExtension.class)`, ne pas mocker les types qu'on ne possède pas ni les valeurs. AssertJ : assertions fluides et lisibles. Un test = un comportement, nommage explicite, données minimales, pas de logique dans les tests.
+
+### 137. Qu'est-ce que le mutation testing (PIT) et que révèle-t-il ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** PIT modifie le code (inversion de conditions, suppression d'appels, changement de constantes) et vérifie qu'un test échoue ; un mutant survivant indique un test insuffisant malgré une couverture élevée. Il mesure la qualité réelle des tests, au prix d'un temps d'exécution long : à lancer sur les modules critiques ou en nightly.
+
+### 138. Comment fonctionnent Maven et Gradle et quelles différences ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Maven : XML déclaratif, cycle de vie fixe (validate → compile → test → package → verify → install → deploy), conventions fortes, plugins ; simple et prévisible. Gradle : DSL Kotlin/Groovy, graphe de tâches, builds incrémentaux et cache, très rapide sur les gros projets multi-modules, plus de flexibilité (et de complexité). Les deux gèrent les BOM, profils/variants et la reproductibilité (versions fixées, lockfiles).
+
+### 139. Comment gérer les conflits de dépendances (dependency hell) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Maven résout par « nearest wins » (la version la plus proche dans l'arbre) ; `mvn dependency:tree` et `-Dverbose` montrent les évictions ; imposer via `dependencyManagement`/BOM, exclure les transitives problématiques, `maven-enforcer-plugin` (`dependencyConvergence`, bannir les doublons de logging). Gradle choisit la version la plus haute et offre `constraints`, `resolutionStrategy` et les lockfiles.
+
+### 140. Qu'est-ce que la compatibilité binaire vs source, et comment faire évoluer une bibliothèque ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Compatibilité source : le code client recompile ; binaire : le code compilé continue de fonctionner sans recompiler (une signature changée, une constante inlinée ou une méthode d'interface ajoutée sans `default` peuvent casser). Outils : japicmp/revapi en CI, SemVer, dépréciation avec `@Deprecated(forRemoval, since)` sur au moins une version majeure avant suppression.
+
+### 141. Comment fonctionne `java.util.concurrent.Flow` et l'API Reactive Streams ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Flow.Publisher`, `Subscriber`, `Subscription`, `Processor` (Java 9) définissent le contrat Reactive Streams avec backpressure (`request(n)`) sans implémentation complète (hors `SubmissionPublisher`). Reactor, RxJava, Mutiny et le `HttpClient` (`BodyHandlers.ofPublisher`) l'implémentent, garantissant l'interopérabilité. Utile pour comprendre WebFlux et le streaming.
+
+### 142. Qu'est-ce que le Foreign Function & Memory API (finalisé en Java 22) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Un remplacement de JNI pour appeler du code natif (`Linker`, `SymbolLookup`, `FunctionDescriptor`) et manipuler de la mémoire hors heap (`Arena`, `MemorySegment`, `MemoryLayout`) de manière sûre, avec libération déterministe. `jextract` génère les bindings depuis des headers C. Utile pour les bibliothèques natives (compression, ML) sans écrire de C.
+
+### 143. Que sont les Vector API et les autres APIs incubatrices/preview récentes ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Vector API (incubateur) : calculs SIMD explicites portables. Preview/récents : Structured Concurrency et Scoped Values (finalisés Java 25), Stream Gatherers (`Stream.gather`, Java 24, opérations intermédiaires personnalisées), Primitive Types in Patterns, Flexible Constructor Bodies (instructions avant `super()`), Module Import Declarations, Compact Source Files (`void main()`). Suivre les JEP et ne pas déployer de preview en production.
+
+### 144. Qu'est-ce que le cycle de release Java et les versions LTS ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Une version tous les six mois (mars, septembre), avec LTS tous les deux ans : 8, 11, 17, 21, 25 (septembre 2025). Les entreprises ciblent les LTS ; les versions intermédiaires servent à tester les nouveautés. Vérifier le support des frameworks (Spring Boot 3 : 17+, Boot 4 : 17+/21 recommandé) et des distributions (Temurin, Corretto) pour les mises à jour de sécurité.
+
+### 145. Comment migrer une application de Java 8 vers 17/21 ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Mettre à jour le build et les plugins, remplacer les APIs supprimées (JAXB, JAX-WS, CORBA → dépendances externes), gérer l'encapsulation forte des internes (`--add-opens` temporaire, puis corriger), mettre à jour les bibliothèques (Lombok, ASM, Mockito), vérifier les changements de GC par défaut (G1) et de `Locale`/dates (CLDR), tester avec `jdeps`/`jdeprscan`, puis adopter progressivement records, `var`, switch, virtual threads.
+
+### 146. Qu'est-ce que `jlink`, `jpackage` et comment créer un runtime minimal ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `jlink` assemble un runtime contenant uniquement les modules nécessaires (`jdeps` pour les lister), réduisant la taille de l'image Docker et la surface d'attaque. `jpackage` crée des installeurs natifs (msi, dmg, deb) avec runtime embarqué pour les applications de bureau. Les images Docker « distroless »/`jlink` sont une alternative à Native Image quand le démarrage n'est pas critique.
+
+### 147. Comment écrire un `main` moderne et des scripts Java (JEP 330, 445, 458) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `java Hello.java` exécute un fichier source directement (Java 11) ; Java 22+ permet plusieurs fichiers et Java 25 finalise les « compact source files » : `void main() { IO.println("Hi"); }` sans classe ni `public static`. Avec `jshell` pour l'exploration. Pratique pour scripts, outils et enseignement, sans passer par Maven.
+
+### 148. Quelles sont les vulnérabilités Java courantes et comment les prévenir ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Désérialisation non sûre, injection (SQL, commande, LDAP, expression), XXE dans les parseurs XML (désactiver les entités externes), traversée de chemin, `Random` pour des secrets, dépendances vulnérables (Log4Shell), fuites via `toString` dans les logs, `Runtime.exec` avec entrées utilisateur. Outils : Dependency-Check/Snyk, SpotBugs avec find-sec-bugs, SonarQube, revues ciblées.
+
+### 149. Comment gérer proprement la fermeture des ressources et l'arrêt d'une application (shutdown hooks) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `Runtime.getRuntime().addShutdownHook(thread)` exécute du code à SIGTERM/`System.exit` (fermeture des pools, flush des logs, désinscription d'un registre) ; garder les hooks rapides et indépendants, sans dépendre d'autres hooks. Les frameworks (Spring) gèrent déjà la fermeture ordonnée des beans ; en Kubernetes, prévoir `terminationGracePeriodSeconds` en conséquence.
+
+### 150. Comment lire et interpréter une stack trace Java efficacement ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Lire de haut en bas la première exception (type, message), repérer la première ligne appartenant à votre code (paquet de l'application) après les frames de frameworks, puis descendre vers les « Caused by » (la cause racine est la dernière). Les lignes « ... 42 more » sont des frames communes omises. Les exceptions dans des lambdas/streams montrent des frames synthétiques ; `-XX:-OmitStackTraceInFastThrow` évite les traces vides sur les exceptions répétées.
+
+### 151. Quelles bonnes pratiques pour concevoir une API publique en Java (bibliothèque) ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Minimiser la surface (packages internes non exportés, `sealed`), types immuables, `Optional` en retour uniquement, éviter les booléens en paramètres (enums), exceptions documentées, pas de dépendances lourdes transitives, `@Deprecated` avec chemin de migration, Javadoc avec exemples, compatibilité vérifiée par japicmp, tests de non-régression et SemVer. Ne pas exposer de types de bibliothèques tierces dans les signatures.

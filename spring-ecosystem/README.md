@@ -2,7 +2,7 @@
 
 > Spring Core, Boot, Data, Batch, Cloud, Security, Actuator
 
-**100 questions**
+**200 questions**
 
 ---
 
@@ -505,3 +505,503 @@
 `🟠 Intermédiaire` · Sujet : **Spring Boot**
 
 **Réponse :** Passer par la dernière 2.7, Java 17+, puis migrer `javax.*` → `jakarta.*` (OpenRewrite automatise), mettre à jour les dépendances (Hibernate 6, Spring Security 6 sans `WebSecurityConfigurerAdapter`, `authorizeHttpRequests`), les propriétés renommées (`spring-boot-properties-migrator`), la trailing slash matching (désactivé), et Micrometer Tracing à la place de Sleuth. Tester exhaustivement, notamment JPA (changements de génération SQL).
+
+### 101. Comment Spring MVC traite-t-il une requête HTTP de bout en bout ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** `DispatcherServlet` reçoit la requête, consulte les `HandlerMapping` pour trouver le contrôleur, exécute les `HandlerInterceptor` (`preHandle`), résout les arguments (`HandlerMethodArgumentResolver` : `@PathVariable`, `@RequestBody` via `HttpMessageConverter`), appelle la méthode, convertit le retour (`@ResponseBody` → JSON) ou résout une vue, gère les exceptions (`HandlerExceptionResolver`, `@ControllerAdvice`), puis `postHandle`/`afterCompletion`.
+
+### 102. Différence entre `@Controller` et `@RestController`, `@RequestParam` et `@PathVariable` ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** `@RestController` = `@Controller` + `@ResponseBody` : le retour est sérialisé dans le corps au lieu d'être un nom de vue. `@PathVariable` lit un segment d'URL (`/users/{id}`), `@RequestParam` un paramètre de query string ou de formulaire (`?page=2`), avec `required`, `defaultValue` et conversion de type automatique.
+
+### 103. Comment fonctionnent les `HttpMessageConverter` et comment en ajouter un ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** Ils convertissent le corps des requêtes/réponses selon `Content-Type`/`Accept` : Jackson pour JSON, XML, `String`, `byte[]`, Protobuf. Boot les auto-configure ; on personnalise via `WebMvcConfigurer.extendMessageConverters` ou un bean `Jackson2ObjectMapperBuilderCustomizer` (dates ISO, `NON_NULL`, modules). Une erreur 415 signale l'absence de converter pour le type demandé.
+
+### 104. Qu'est-ce qu'un `HandlerInterceptor` et quelle différence avec un `Filter` ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** Un `Filter` (Servlet) s'exécute avant le `DispatcherServlet`, sans connaissance du contrôleur, pour les préoccupations transverses bas niveau (sécurité, logs bruts, CORS). Un `HandlerInterceptor` s'exécute autour de la méthode de contrôleur avec accès au handler choisi (audit, métriques par endpoint, vérification de headers métier). Les deux se déclarent en beans ; l'ordre se contrôle par `@Order`/`addInterceptors`.
+
+### 105. Comment gérer les uploads de fichiers ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** `@RequestParam MultipartFile file` ou `@RequestPart`, avec `spring.servlet.multipart.max-file-size`/`max-request-size`. Streamer vers le stockage (`file.getInputStream()`) plutôt que charger en mémoire, valider type et taille, générer un nom sûr, et pour les gros fichiers préférer un upload direct vers S3 via URL présignée.
+
+### 106. Comment renvoyer un fichier ou un flux volumineux sans saturer la mémoire ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** Retourner `ResponseEntity<StreamingResponseBody>` ou `Resource` (`InputStreamResource`) avec `Content-Disposition` et `Content-Type`, en écrivant par blocs. Pour les réponses longues, `ResponseBodyEmitter`/`SseEmitter` ou `Flux` avec WebFlux. Éviter `byte[]` sur des fichiers de plusieurs Mo.
+
+### 107. Comment fonctionnent la négociation de contenu et le versioning d'API ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** Le `ContentNegotiationManager` choisit le format selon `Accept` (ou un paramètre), et `produces`/`consumes` sur les mappings filtrent. Versioning classique : préfixe d'URL (`/v1`), header (`X-API-Version`), ou media type (`application/vnd.app.v2+json`) ; Spring 7 le rend natif (`version` sur les mappings). Toujours documenter la politique de dépréciation.
+
+### 108. Qu'est-ce que `@ResponseStatus`, `ResponseEntity` et comment choisir ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** `ResponseEntity<T>` contrôle statut, headers et corps par requête (201 avec `Location`, 204). `@ResponseStatus` fixe un statut par défaut sur une méthode ou une classe d'exception. Pour les APIs, `ResponseEntity` (ou le retour direct pour le 200) plus un `@RestControllerAdvice` pour les erreurs est le duo standard.
+
+### 109. Comment fonctionne le traitement asynchrone dans Spring MVC (`Callable`, `DeferredResult`) ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** Un contrôleur retournant `Callable`, `DeferredResult` ou `CompletableFuture` libère le thread Tomcat pendant le traitement ; la réponse est écrite quand le résultat est disponible (`spring.mvc.async.request-timeout`). Utile pour les long-polling et appels lents ; avec les virtual threads, le simple code bloquant devient souvent suffisant.
+
+### 110. Comment sécuriser et documenter une API avec OpenAPI (springdoc) ?
+`🟠 Intermédiaire` · Sujet : **Spring MVC**
+
+**Réponse :** `springdoc-openapi-starter-webmvc-ui` génère la spécification à partir des contrôleurs et annotations (`@Operation`, `@Schema`, `@Parameter`) et sert Swagger UI. Bonnes pratiques : groupes par version, schémas de sécurité déclarés (Bearer), exemples, désactivation ou protection de l'UI en production, et contrôle en CI de la compatibilité du contrat (openapi-diff).
+
+### 111. Qu'est-ce que Spring WebFlux et quand le choisir plutôt que Spring MVC ?
+`🟠 Intermédiaire` · Sujet : **WebFlux**
+
+**Réponse :** Une pile réactive non bloquante (Reactor, Netty) exposant `Mono`/`Flux`. À choisir pour les gateways, le streaming, l'agrégation d'appels massivement concurrents ou les clients réactifs de bout en bout (R2DBC, Kafka réactif). Sinon MVC + virtual threads reste plus simple à écrire, tester et déboguer.
+
+### 112. Différence entre `Mono` et `Flux`, et qu'est-ce que la backpressure ?
+`🟠 Intermédiaire` · Sujet : **WebFlux**
+
+**Réponse :** `Mono<T>` : 0 ou 1 élément ; `Flux<T>` : 0..n. Rien ne s'exécute avant `subscribe()`. La backpressure permet au consommateur de demander n éléments (`request(n)`) pour ne pas être submergé ; les opérateurs `onBackpressureBuffer/Drop/Latest` gèrent les producteurs plus rapides.
+
+### 113. Quels sont les pièges classiques en programmation réactive avec Spring ?
+`🟠 Intermédiaire` · Sujet : **WebFlux**
+
+**Réponse :** Appel bloquant dans une chaîne (JDBC, `Thread.sleep`, `block()`) : utiliser `Schedulers.boundedElastic` ou BlockHound pour détecter ; perte du `MDC`/contexte (utiliser `Context`, Micrometer context propagation) ; oublier de s'abonner ; exceptions avalées ; `flatMap` sans limite de concurrence ; tests avec `StepVerifier` négligés.
+
+### 114. Comment gérer la transaction et la persistance réactive (R2DBC) ?
+`🟠 Intermédiaire` · Sujet : **WebFlux**
+
+**Réponse :** `spring-boot-starter-data-r2dbc` avec `ReactiveCrudRepository`, `DatabaseClient`, et `@Transactional` supporté par `ReactiveTransactionManager` (contexte transactionnel propagé dans le `Context` Reactor). Pas de lazy loading ni de relations JPA : modéliser en agrégats simples ou utiliser des jointures explicites.
+
+### 115. Comment exposer du Server-Sent Events et des WebSockets ?
+`🟠 Intermédiaire` · Sujet : **WebFlux**
+
+**Réponse :** SSE : endpoint retournant `Flux<ServerSentEvent<T>>` avec `produces = TEXT_EVENT_STREAM_VALUE` (MVC supporte aussi via `SseEmitter`). WebSocket : `WebSocketHandler` réactif et `SimpleUrlHandlerMapping`, ou en MVC `spring-websocket` avec STOMP et un broker (`@MessageMapping`, `SimpMessagingTemplate`, relais RabbitMQ pour le multi-instances).
+
+### 116. Comment fonctionne `SpringApplication` et que peut-on personnaliser au démarrage ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `SpringApplication.run` crée l'`ApplicationContext` adapté (servlet, réactif, none), charge l'`Environment`, applique les `ApplicationContextInitializer` et `ApplicationListener` (`spring.factories`/`META-INF/spring/*.imports`), affiche la bannière, rafraîchit le contexte, exécute `CommandLineRunner`/`ApplicationRunner`. On personnalise via `SpringApplicationBuilder` (profils, propriétés par défaut, `web(NONE)`, `lazyInitialization`).
+
+### 117. Différence entre `CommandLineRunner`, `ApplicationRunner` et `@EventListener(ApplicationReadyEvent)` ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Les runners s'exécutent après le démarrage du contexte mais avant que l'application ne soit signalée prête ; `ApplicationRunner` reçoit des arguments parsés. `ApplicationReadyEvent` est publié une fois l'application prête à servir (après les runners) : préférable pour du warm-up ou des notifications. Une exception dans un runner arrête l'application.
+
+### 118. Comment structurer les propriétés avec `@ConfigurationProperties` imbriquées, listes et validation ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un record ou une classe (`@ConfigurationProperties(prefix="app.mail")`) avec champs imbriqués, `List<T>`, `Map<String,T>`, `Duration`/`DataSize` convertis automatiquement (`10s`, `5MB`), `@Validated` + contraintes Bean Validation, `@DefaultValue`. Activer avec `@EnableConfigurationProperties` ou `@ConfigurationPropertiesScan` ; le processor génère la métadonnée pour l'autocomplétion IDE.
+
+### 119. Comment gérer la configuration par environnement sans profils multiples ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un seul `application.yml` avec des placeholders `${DB_URL}` résolus par variables d'environnement (12-factor), plus `application-local.yml` pour le poste du développeur. Les profils restent utiles pour des beans différents (mocks, adaptateurs), pas pour dupliquer des valeurs. `spring.config.import` charge des fichiers externes ou Vault/Config Server.
+
+### 120. Que sont les `spring.factories` / `AutoConfiguration.imports` et comment fonctionne l'ordre des auto-configurations ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Les auto-configurations sont listées dans `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` et chargées après les configurations utilisateur, ordonnées par `@AutoConfigureBefore/After/Order`. Elles utilisent `@ConditionalOnMissingBean` pour se retirer si l'utilisateur fournit son bean. `--debug` ou Actuator `/conditions` affichent ce qui a été appliqué et pourquoi.
+
+### 121. Comment écrire une auto-configuration réutilisable dans un starter d'entreprise ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Module `xxx-spring-boot-autoconfigure` avec classes `@AutoConfiguration` conditionnelles, `@ConfigurationProperties` documentées, métadonnées (`additional-spring-configuration-metadata.json`), et un module `xxx-spring-boot-starter` ne contenant que les dépendances. Tester avec `ApplicationContextRunner` (conditions, remplacement par l'utilisateur). Ne pas faire de scan de composants dans une auto-configuration.
+
+### 122. Comment tester une auto-configuration avec `ApplicationContextRunner` ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(MyAutoConfig.class)).withPropertyValues("app.x=1").run(ctx -> assertThat(ctx).hasSingleBean(X.class))`. On vérifie aussi les cas où une classe est absente (`withClassLoader(new FilteredClassLoader(...))`) et où l'utilisateur fournit son propre bean (`withUserConfiguration`).
+
+### 123. Que fournit Actuator au-delà de `/health` et `/metrics` ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `/info` (build, git), `/env` et `/configprops` (configuration effective, valeurs sensibles masquées), `/beans`, `/conditions`, `/mappings`, `/loggers` (changer un niveau à chaud), `/threaddump`, `/heapdump`, `/prometheus`, `/scheduledtasks`, `/startup`, `/sbom` (Boot 3.3). Exposer sélectivement (`management.endpoints.web.exposure.include`) et sur un port de management séparé.
+
+### 124. Comment écrire un `HealthIndicator` personnalisé et l'intégrer aux probes Kubernetes ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un bean implémentant `HealthIndicator` (ou `ReactiveHealthIndicator`) retournant `Health.up()/down().withDetail(...)`. Les groupes `management.endpoint.health.group.readiness.include=readinessState,db` composent les probes ; une dépendance externe non critique ne doit pas rendre le Pod non-ready ni le redémarrer (liveness minimale).
+
+### 125. Comment fonctionne le graceful shutdown dans Spring Boot ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `server.shutdown=graceful` + `spring.lifecycle.timeout-per-shutdown-phase=30s` : à SIGTERM, le serveur cesse d'accepter des connexions et laisse finir les requêtes en cours avant d'arrêter le contexte (`SmartLifecycle` phases). Sous Kubernetes, combiner avec la readiness passant à `false` et un `preStop` pour laisser le temps aux Endpoints d'être mis à jour.
+
+### 126. Comment personnaliser Tomcat embarqué (threads, timeouts, compression, HTTP/2) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Propriétés `server.tomcat.threads.max`, `server.tomcat.accept-count`, `server.tomcat.connection-timeout`, `server.compression.enabled`, `server.http2.enabled` (avec TLS), `server.max-http-request-header-size`, accès aux logs `server.tomcat.accesslog.*`. Pour aller plus loin, un `WebServerFactoryCustomizer<TomcatServletWebServerFactory>`. Jetty et Undertow sont interchangeables via les starters.
+
+### 127. Qu'est-ce que Spring Boot AOT et comment préparer une application pour GraalVM Native ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `spring-boot:process-aot` génère à la compilation le code d'enregistrement des beans et les hints de réflexion, ce qui supprime la découverte dynamique au démarrage. Pour Native Image : `native-maven-plugin` ou Buildpacks (`-Pnative`), éviter la réflexion non déclarée (`@RegisterReflectionForBinding`, `RuntimeHintsRegistrar`), tester en natif (les proxies CGLIB et certaines bibliothèques exigent des hints). Gains : démarrage < 100 ms, mémoire réduite ; coût : build long, débogage plus difficile.
+
+### 128. Comment gérer les dépendances et versions avec le BOM Spring Boot ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Le parent `spring-boot-starter-parent` (ou l'import `spring-boot-dependencies` en BOM) fixe les versions cohérentes de centaines de bibliothèques ; on ne déclare pas de version pour les dépendances gérées, et on surcharge via des propriétés (`<jackson-bom.version>`) avec prudence. Spring Cloud a son propre BOM à aligner avec la version Boot (tableau de compatibilité).
+
+### 129. Comment gérer les erreurs de `JSON` malformé, types invalides et enums inconnus ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Elles produisent `HttpMessageNotReadableException` (400) : les intercepter dans le `@RestControllerAdvice` pour renvoyer un `ProblemDetail` lisible sans exposer la stack. Configurer Jackson : `FAIL_ON_UNKNOWN_PROPERTIES=false` si tolérant, `READ_UNKNOWN_ENUM_VALUES_AS_NULL`, `@JsonFormat` pour les dates, et valider ensuite avec Bean Validation.
+
+### 130. Comment fonctionnent les `@JsonView`, `@JsonIgnore` et les DTO dans une API Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@JsonIgnore`/`@JsonIgnoreProperties` masquent des champs, `@JsonView` expose des vues différentes d'un même objet selon le contrôleur. En pratique, des DTO dédiés (records) par cas d'usage sont plus clairs, évitent d'exposer des entités JPA (lazy loading, récursion, fuite de champs) et découplent l'API du modèle.
+
+### 131. Comment implémenter un repository personnalisé (fragment) ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** Déclarer une interface `OrderRepositoryCustom` avec sa classe `OrderRepositoryImpl` (suffixe `Impl` obligatoire) utilisant `EntityManager`, `JdbcClient` ou Querydsl, puis faire hériter `OrderRepository extends JpaRepository<Order, Long>, OrderRepositoryCustom`. Spring Data compose les fragments ; utile pour les requêtes dynamiques ou les projections complexes.
+
+### 132. Différence entre projections interface, class (DTO) et dynamiques ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** Interface : getters correspondant aux colonnes (proxy, supporte SpEL et projections imbriquées). Class/record : constructeur DTO, requête `SELECT new` optimisée. Dynamique : `<T> List<T> findByStatus(String s, Class<T> type)` choisit la projection à l'appel. Les projections évitent de charger des entités complètes et de déclencher le lazy loading.
+
+### 133. Comment utiliser Querydsl ou JPA Criteria pour des filtres dynamiques ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** `Specification<T>` (Criteria API) composable (`where(hasStatus(s)).and(createdAfter(d))`), ou Querydsl avec Q-classes générées (`QOrder.order.status.eq(s)`), typé et lisible, via `QuerydslPredicateExecutor`. Les deux évitent la concaténation de JPQL ; Querydsl reste le plus agréable pour les recherches multi-critères.
+
+### 134. Comment fonctionne le `EntityManager` et le contexte de persistance dans une transaction Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** Spring injecte un proxy `@PersistenceContext` lié à la transaction courante : les entités chargées sont gérées (dirty checking, cache de premier niveau) jusqu'au commit/flush. Hors transaction (ou avec `open-in-view=false` après le service), les entités sont détachées : accéder à une relation lazy lève `LazyInitializationException`. `flush()` synchronise sans committer ; `clear()` vide le contexte (imports massifs).
+
+### 135. Qu'est-ce que `@Version`, `@DynamicUpdate`, `@Immutable` et quand les utiliser ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** `@Version` : verrouillage optimiste (échec `ObjectOptimisticLockingFailureException` à convertir en 409). `@DynamicUpdate` : `UPDATE` ne contenant que les colonnes modifiées (utile pour de grosses tables, coût de génération SQL). `@Immutable` : entité en lecture seule, Hibernate ignore les modifications et optimise. Les records/DTO restent préférables aux entités immuables pour la lecture.
+
+### 136. Comment gérer les relations bidirectionnelles et les cascades sans pièges ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** Définir le côté propriétaire (`@JoinColumn`) et `mappedBy` de l'autre côté, maintenir les deux côtés via des méthodes utilitaires (`addItem`), `cascade = ALL` + `orphanRemoval` uniquement sur les compositions (agrégat), jamais sur `@ManyToMany`. Exclure les relations de `toString`/`equals`/`hashCode` (boucles, chargements lazy) ; baser `equals` sur un identifiant métier ou l'id une fois assigné.
+
+### 137. Comment implémenter la recherche full-text ou géospatiale avec Spring Data ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** PostgreSQL : `@Query` native avec `to_tsvector`/`@@` ou PostGIS, mappage des types via Hibernate Spatial ou colonnes JSONB (`@JdbcTypeCode(SqlTypes.JSON)`). Sinon Spring Data Elasticsearch/OpenSearch avec `@Document` et repositories dédiés, synchronisés depuis la base par événements ou CDC. Éviter `LIKE '%x%'` sur de grands volumes.
+
+### 138. Comment gérer le soft delete et le multi-tenant avec Hibernate ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** Hibernate 6.4+ : `@SoftDelete` sur l'entité (colonne booléenne ou timestamp, filtrée automatiquement). Multi-tenant : `@TenantId` sur une colonne + `CurrentTenantIdentifierResolver`, ou schéma/base par tenant via `MultiTenantConnectionProvider`. Vérifier les requêtes natives et les jointures qui contournent ces filtres.
+
+### 139. Comment utiliser Spring Data avec MongoDB et Redis ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** MongoDB : `@Document`, `MongoRepository`, `MongoTemplate` pour les agrégations, index déclarés (`@Indexed`, auto-index-creation à désactiver en prod), transactions multi-documents sur replica set. Redis : `RedisTemplate`/`StringRedisTemplate` avec sérialiseurs configurés (JSON), `@RedisHash` pour les objets, Spring Cache avec TTL, Spring Session, pub/sub et streams via `ReactiveRedisTemplate`.
+
+### 140. Qu'est-ce que Spring Data REST et pourquoi est-il rarement utilisé en production ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** Il expose automatiquement les repositories en API HATEOAS (`/orders`, pagination, recherche par query methods). Pratique pour un prototype ou un back-office, mais il couple l'API au modèle de données, complique les règles métier, la validation et la sécurité fine. Pour une API publique, préférer des contrôleurs et DTO explicites.
+
+### 141. Comment fonctionne le `SecurityContextHolder` et sa propagation aux threads asynchrones ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Le contexte d'authentification est stocké par défaut dans un `ThreadLocal` (stratégie `MODE_THREADLOCAL`) ; il n'est pas transmis aux threads d'un pool. Solutions : `MODE_INHERITABLETHREADLOCAL` (risqué avec les pools), `DelegatingSecurityContextExecutor`/`DelegatingSecurityContextAsyncTaskExecutor`, ou propagation explicite. Avec WebFlux, `ReactiveSecurityContextHolder` via le `Context`.
+
+### 142. Comment implémenter une authentification personnalisée (API key, header interne) ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Un `OncePerRequestFilter` qui lit le header, valide la clé (service, cache), construit un `Authentication` (`UsernamePasswordAuthenticationToken` authentifié avec autorités) et le place dans le `SecurityContext`, ajouté via `http.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)`. Ou un `AuthenticationProvider` dédié avec un `AuthenticationManager`. Toujours répondre 401 propre en cas d'échec via `AuthenticationEntryPoint`.
+
+### 143. Comment gérer les autorisations par requête avec `authorizeHttpRequests` ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** `http.authorizeHttpRequests(a -> a.requestMatchers("/admin/**").hasRole("ADMIN").requestMatchers(HttpMethod.GET, "/public/**").permitAll().anyRequest().authenticated())` ; l'ordre compte (première règle correspondante). Depuis Security 6, `requestMatchers` déduit MVC/AntPath ; utiliser `PathPatternRequestMatcher` explicite en cas de plusieurs servlets. Préférer la sécurité par défaut « deny » + ouverture explicite.
+
+### 144. Comment fonctionnent `@PreAuthorize` avec SpEL avancé et les `PermissionEvaluator` ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** `@PreAuthorize("hasRole('ADMIN') or #order.ownerId == authentication.name")` accède aux paramètres, à l'authentification et à des beans (`@authz.canEdit(#id)`). `hasPermission(#id, 'Order', 'WRITE')` délègue à un `PermissionEvaluator` centralisant les règles. `@PostAuthorize`/`@PostFilter` agissent sur le retour. Activer avec `@EnableMethodSecurity`.
+
+### 145. Comment protéger contre les attaques courantes avec Spring Security (headers, CSRF, session) ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Headers par défaut : `X-Content-Type-Options`, `X-Frame-Options`, `Cache-Control`, HSTS ; ajouter une CSP (`http.headers(h -> h.contentSecurityPolicy(...))`). CSRF activé pour les sessions (token `XSRF-TOKEN` pour les SPA avec `CookieCsrfTokenRepository`), gestion de session (`sessionFixation().migrateSession()`, `maximumSessions(1)`), `requiresChannel` HTTPS, et limitation des tentatives par un filtre/`AuthenticationFailureHandler` + cache.
+
+### 146. Comment intégrer Spring Security avec un frontend Angular (SPA) hébergé séparément ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Deux options : (1) Resource Server JWT : Angular obtient le jeton via OIDC (code + PKCE) et l'envoie en `Authorization: Bearer` ; CORS configuré, CSRF désactivé, stateless. (2) BFF : Spring Cloud Gateway ou Boot en client OIDC avec session cookie, CSRF cookie `XSRF-TOKEN` lu par Angular (`withXsrfConfiguration`), `TokenRelay` vers les APIs. La seconde est plus sûre pour le navigateur.
+
+### 147. Comment gérer la déconnexion et l'expiration des jetons côté Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Sessions : `http.logout()` invalide la session, supprime les cookies, redirige ; avec OIDC client, `OidcClientInitiatedLogoutSuccessHandler` déconnecte aussi l'IdP ; back-channel logout supporté depuis Security 6.2. JWT : expiration courte, refresh côté client, et si révocation immédiate nécessaire, introspection (`opaqueToken()`) ou denylist consultée dans un `OAuth2TokenValidator`.
+
+### 148. Qu'est-ce que le `OAuth2AuthorizedClientManager` et comment appeler une API en aval avec le jeton de l'utilisateur ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Il obtient/rafraîchit les access tokens des clients enregistrés. Avec `RestClient`/`WebClient`, ajouter l'intercepteur `OAuth2ClientHttpRequestInterceptor` (Security 6.4) ou `ServletOAuth2AuthorizedClientExchangeFilterFunction` : le jeton de l'utilisateur courant (ou client credentials) est ajouté automatiquement et rafraîchi. C'est le cœur du pattern BFF/TokenRelay.
+
+### 149. Comment auditer et journaliser les événements de sécurité ?
+`🟠 Intermédiaire` · Sujet : **Spring Sécurité**
+
+**Réponse :** Spring publie des `AuthenticationSuccessEvent`, `AbstractAuthenticationFailureEvent`, `AuthorizationDeniedEvent` (avec `AuthorizationEventPublisher`) : les écouter pour tracer connexions, échecs et refus dans des logs structurés ou un SIEM. Actuator `/auditevents` avec `AuditEventRepository` conserve un historique en mémoire ; en production, envoyer vers un stockage durable.
+
+### 150. Comment configurer un job Spring Batch avec Boot 3 (sans `@EnableBatchProcessing`) ?
+`🟠 Intermédiaire` · Sujet : **Spring Batch**
+
+**Réponse :** Boot 3 auto-configure `JobRepository`, `JobLauncher` et le `DataSource` ; on déclare des beans `Job` et `Step` avec `JobBuilder(name, jobRepository)` et `StepBuilder(...).<I,O>chunk(size, transactionManager).reader().processor().writer().build()`. `@EnableBatchProcessing` désactive désormais l'auto-configuration. `spring.batch.jdbc.initialize-schema=always` crée les tables de métadonnées.
+
+### 151. Quels readers et writers standards connaître ?
+`🟠 Intermédiaire` · Sujet : **Spring Batch**
+
+**Réponse :** Readers : `FlatFileItemReader` (CSV), `JdbcCursorItemReader`/`JdbcPagingItemReader`, `JpaPagingItemReader`, `KafkaItemReader`, `JsonItemReader`, `StaxEventItemReader` (XML). Writers : `JdbcBatchItemWriter`, `JpaItemWriter`, `FlatFileItemWriter`, `KafkaItemWriter`, `CompositeItemWriter`. Préférer les readers paginés ou par curseur aux chargements complets en mémoire.
+
+### 152. Comment gérer les erreurs : skip, retry, restart et `ExecutionContext` ?
+`🟠 Intermédiaire` · Sujet : **Spring Batch**
+
+**Réponse :** `.faultTolerant().skip(ParseException.class).skipLimit(100).retry(DeadlockLoserDataAccessException.class).retryLimit(3)` avec `SkipListener` pour journaliser. Le restart reprend au dernier chunk committé grâce à l'`ExecutionContext` persisté par les readers stateful (ligne courante, dernier id). Les `JobParameters` identifient l'instance : un job terminé COMPLETED ne se relance pas avec les mêmes paramètres (ajouter un `run.id` incrémental si voulu).
+
+### 153. Comment paralléliser un job Spring Batch ?
+`🟠 Intermédiaire` · Sujet : **Spring Batch**
+
+**Réponse :** Multi-threaded step (`taskExecutor`, readers thread-safe seulement), parallel steps (`split` en flow), partitioning (`Partitioner` découpe par plage d'ids, chaque partition exécutée localement ou à distance), remote chunking (workers via messagerie). Le partitioning local est le plus courant ; l'écriture doit tolérer la concurrence.
+
+### 154. Comment planifier, monitorer et exploiter des jobs Spring Batch ?
+`🟠 Intermédiaire` · Sujet : **Spring Batch**
+
+**Réponse :** Lancer via `JobLauncher` sur `@Scheduled`, un CronJob Kubernetes (`spring.batch.job.name` + arrêt de l'application), ou un orchestrateur (Airflow). Monitorer avec les tables de métadonnées (`BATCH_JOB_EXECUTION`, statut, durée, exceptions), les métriques Micrometer `spring.batch.*`, et des `JobExecutionListener` pour alerter. Purger périodiquement les métadonnées.
+
+### 155. Comment fonctionne Spring Cloud Config Server et le rafraîchissement à chaud ?
+`🟠 Intermédiaire` · Sujet : **Spring Cloud**
+
+**Réponse :** Le serveur sert la configuration depuis Git/Vault/base par application et profil (`/app/prod`) ; les clients l'importent (`spring.config.import=configserver:`). `@RefreshScope` recrée les beans concernés à `POST /actuator/refresh` ; Spring Cloud Bus (Kafka/RabbitMQ) propage le refresh à toutes les instances. Les `@ConfigurationProperties` se rafraîchissent automatiquement.
+
+### 156. Qu'est-ce qu'OpenFeign et comment le configurer proprement ?
+`🟠 Intermédiaire` · Sujet : **Spring Cloud**
+
+**Réponse :** Un client HTTP déclaratif (`@FeignClient(name, url)`) intégré à Spring Cloud : load balancing, décodeurs d'erreurs (`ErrorDecoder`), intercepteurs (token), timeouts et retries par client, circuit breaker via `spring.cloud.openfeign.circuitbreaker.enabled`. Feign est en maintenance ; pour les nouveaux projets, les interfaces `@HttpExchange` de Spring sont l'alternative recommandée.
+
+### 157. Comment gérer la découverte de services sur Kubernetes sans Eureka ?
+`🟠 Intermédiaire` · Sujet : **Spring Cloud**
+
+**Réponse :** Le DNS et les Services Kubernetes suffisent : appeler `http://orders-service` ; Spring Cloud Kubernetes peut charger ConfigMaps/Secrets et exposer un `DiscoveryClient` sur l'API Kubernetes, mais il ajoute des permissions RBAC. Eureka/Consul restent pertinents hors Kubernetes ou pour du client-side load balancing fin.
+
+### 158. Comment implémenter un rate limiter et un circuit breaker dans Spring Cloud Gateway ?
+`🟠 Intermédiaire` · Sujet : **Spring Cloud**
+
+**Réponse :** Filtre `RequestRateLimiter` avec `RedisRateLimiter` (replenishRate, burstCapacity) et un `KeyResolver` (utilisateur, IP, API key) ; filtre `CircuitBreaker` (Resilience4j) avec `fallbackUri`. Ajouter `Retry` (méthodes idempotentes seulement), timeouts par route (`metadata.response-timeout`), et exposer les métriques.
+
+### 159. Qu'est-ce que Spring Cloud Contract ?
+`🟠 Intermédiaire` · Sujet : **Spring Cloud**
+
+**Réponse :** Le contract testing : un contrat (Groovy/YAML) décrit requête/réponse ; côté producteur, des tests générés vérifient que l'API respecte le contrat ; côté consommateur, un stub (WireMock) généré à partir du même contrat permet de tester sans le service réel. Il détecte les ruptures de contrat en CI avant l'intégration.
+
+### 160. Comment gérer les transactions distribuées entre microservices Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Cloud**
+
+**Réponse :** Éviter XA/JTA : préférer la saga (chorégraphie par événements Kafka ou orchestration via un service/Temporal), l'outbox transactionnel (écrire l'événement dans la même transaction que la donnée, publié ensuite par un relais ou Debezium), l'idempotence des consommateurs, et la compensation. Spring Modulith fournit un event publication registry pour l'outbox intra-application.
+
+### 161. Comment implémenter le pattern Outbox avec Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Dans la transaction métier, insérer une ligne `outbox` (id, agrégat, type, payload JSON). Un `@Scheduled` (avec `SKIP LOCKED` pour le multi-instances) ou Debezium lit et publie vers Kafka puis marque/supprime la ligne ; les consommateurs dédupliquent par id d'événement. `@TransactionalEventListener(AFTER_COMMIT)` seul ne suffit pas (perte possible en cas de crash après commit).
+
+### 162. Comment intégrer Kafka dans Spring Boot (Spring Kafka) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `spring-kafka` : `KafkaTemplate` pour produire (sérialiseurs JSON, `ProducerListener`), `@KafkaListener(topics, groupId, concurrency)` pour consommer avec conteneurs, `DefaultErrorHandler` (backoff, DLT via `DeadLetterPublishingRecoverer`), `@RetryableTopic`, transactions (`KafkaTransactionManager`), et tests avec `@EmbeddedKafka` ou Testcontainers. Configurer `ack-mode` et l'idempotence du producteur.
+
+### 163. Comment intégrer RabbitMQ (Spring AMQP) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `spring-boot-starter-amqp` : `RabbitTemplate` (publisher confirms, `MessageConverter` JSON), `@RabbitListener` sur des queues déclarées en beans (`Queue`, `Exchange`, `Binding`), acquittement manuel ou automatique, retries via `RetryTemplate`/dead-letter exchange avec TTL, prefetch pour le débit, et `RabbitListenerContainerFactory` concurrent. Idempotence côté consommateur comme avec Kafka.
+
+### 164. Qu'est-ce que Spring Integration et quand l'utiliser ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Une implémentation des Enterprise Integration Patterns (channels, transformers, routers, splitters, aggregators, adaptateurs fichiers/FTP/JMS/HTTP/Kafka) avec une DSL Java. Utile pour des flux d'intégration complexes (polling de répertoires SFTP, agrégation de messages), mais lourd pour un simple consommateur Kafka : Spring Kafka/Cloud Stream suffisent alors.
+
+### 165. Comment envoyer des e-mails et générer des documents dans Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `spring-boot-starter-mail` + `JavaMailSender` (SMTP configuré, `MimeMessageHelper` pour HTML et pièces jointes), gabarits Thymeleaf pour le corps, envoi asynchrone via file/`@Async` avec retry, et fournisseur transactionnel (SES, SendGrid) en production. Documents : OpenPDF/iText, JasperReports, ou HTML → PDF (openhtmltopdf) avec Thymeleaf.
+
+### 166. Comment gérer les WebSockets/STOMP avec Spring MVC et le scaler ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@EnableWebSocketMessageBroker`, endpoint `registerStompEndpoints`, broker simple en mémoire ou relais vers RabbitMQ/ActiveMQ (`enableStompBrokerRelay`) pour partager les abonnements entre instances, `@MessageMapping` pour recevoir, `SimpMessagingTemplate.convertAndSendToUser` pour cibler un utilisateur. Sécuriser avec `AuthorizationManager` de messages et le handshake authentifié.
+
+### 167. Comment implémenter un endpoint de long-running task avec suivi d'état ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Retourner 202 avec un identifiant et une URL de statut, exécuter le traitement dans une file (Kafka/RabbitMQ) ou un executor dédié, persister l'état (PENDING, RUNNING, DONE, FAILED, progression) en base/Redis, endpoint `GET /tasks/{id}` (ou SSE pour le temps réel), idempotence à la soumission, et nettoyage des tâches anciennes. Jamais de traitement long dans le thread de requête.
+
+### 168. Comment fonctionne `RestClient` et comment le configurer (timeouts, intercepteurs, erreurs) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `RestClient.builder().baseUrl(...).requestFactory(factory avec timeouts).requestInterceptor(auth).defaultStatusHandler(...)` puis `.get().uri("/x/{id}", id).retrieve().body(Dto.class)`. Boot 3.4 fournit `RestClient.Builder` auto-configuré (`spring.http.client.*` pour les timeouts et le connecteur : JDK, Apache, Jetty). Un builder par service, jamais un client sans timeout.
+
+### 169. Comment tester un client HTTP avec `@RestClientTest` et MockRestServiceServer/WireMock ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@RestClientTest(MyClient.class)` charge le client et un `MockRestServiceServer` pour stubber les réponses (`expect(requestTo(...)).andRespond(withSuccess(json, APPLICATION_JSON))`). Pour des scénarios plus réalistes (délais, pannes, TLS), WireMock (`wiremock-spring-boot`) en test d'intégration. Tester les erreurs (4xx/5xx, timeout) autant que le cas nominal.
+
+### 170. Comment gérer les dates, fuseaux et formats dans une API Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Stocker en UTC (`Instant`/`OffsetDateTime`, colonnes `timestamptz`), exposer en ISO-8601 (`spring.jackson.serialization.write-dates-as-timestamps=false`, `@JsonFormat` si besoin), `spring.jackson.time-zone`, `@DateTimeFormat` pour les paramètres de requête, et fixer la timezone de la JVM/du conteneur (`TZ=UTC`) pour éviter les décalages entre environnements. Convertir vers le fuseau utilisateur uniquement à l'affichage.
+
+### 171. Comment internationaliser les messages d'erreur et de validation ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `MessageSource` avec `messages_fr.properties`, `LocaleResolver` (header `Accept-Language`), messages de contraintes en `{app.validation.email}` résolus par le `LocalValidatorFactoryBean` lié au `MessageSource` (`spring.messages.basename`). Les codes d'erreur restent stables pour les clients ; seul le libellé est localisé.
+
+### 172. Comment gérer les uploads et le stockage S3 avec Spring Cloud AWS ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `spring-cloud-aws-starter-s3` fournit `S3Template` (upload/download, URLs présignées) et les credentials via la chaîne AWS (IRSA sur EKS, pas de clés en dur). Streamer les fichiers, définir le `Content-Type`, chiffrer côté serveur, et utiliser des URLs présignées pour les uploads directs depuis le navigateur.
+
+### 173. Comment concevoir un service multi-tenant avec Spring (résolution du tenant, isolation) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Résoudre le tenant par sous-domaine, header ou claim du jeton dans un filtre, le stocker dans un `ThreadLocal`/`ScopedValue`, l'appliquer aux données (`@TenantId`, schéma ou `AbstractRoutingDataSource` par tenant), au cache (préfixe de clé), aux logs (MDC) et aux métriques (tag borné). Tester systématiquement les fuites inter-tenants.
+
+### 174. Comment fonctionne `AbstractRoutingDataSource` et le routage lecture/écriture ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un `DataSource` qui choisit la source selon une clé de contexte (`determineCurrentLookupKey`) : tenant, ou lecture vs écriture. Pour router les lectures vers une réplique, utiliser `TransactionSynchronizationManager.isCurrentTransactionReadOnly()` avec `LazyConnectionDataSourceProxy` (sinon la connexion est prise avant que `readOnly` soit connu). Attention à la latence de réplication.
+
+### 175. Comment implémenter des feature flags dans Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Propriétés `@ConfigurationProperties` rafraîchissables pour les cas simples, ou un fournisseur (Unleash, LaunchDarkly, OpenFeature SDK, Togglz) évalué par utilisateur/contexte avec cache local. Encapsuler dans un service (`features.isEnabled("new-checkout", ctx)`), utiliser `@ConditionalOnProperty` uniquement pour les beans au démarrage, et supprimer les flags obsolètes.
+
+### 176. Comment gérer les migrations de base avec Flyway dans Spring Boot ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `spring-boot-starter-flyway` (ou `flyway-database-postgresql` en Flyway 10) exécute `db/migration/V1__init.sql` au démarrage avant JPA ; `spring.jpa.hibernate.ddl-auto=validate` vérifie la cohérence. Bonnes pratiques : migrations immuables, une par changement, compatibles avec l'ancienne version de l'application (expand/contract), migrations Java pour les données complexes, `baseline-on-migrate` pour les bases existantes, et exécution en job séparé sur les gros déploiements.
+
+### 177. Comment diagnostiquer un démarrage lent ou une application qui ne démarre pas ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Lire la première exception de la pile (souvent noyée sous les `BeanCreationException` imbriquées), `--debug` pour le rapport d'auto-configuration, Actuator `/startup` avec `BufferingApplicationStartup` pour le temps par étape, `spring.main.lazy-initialization` pour isoler, vérifier les connexions externes bloquantes (base, Kafka, Config Server) avec timeouts, et les migrations Flyway longues.
+
+### 178. Comment gérer les `@Transactional` dans les tests et pourquoi peut-ce masquer des bugs ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@Transactional` sur un test annule la transaction à la fin (base propre), mais garde le contexte de persistance ouvert : le lazy loading fonctionne alors qu'il échouerait en production, les contraintes différées ne sont pas vérifiées, et les `@TransactionalEventListener` ne se déclenchent pas. Pour les tests d'intégration réalistes, préférer des données nettoyées explicitement (SQL de nettoyage, `@Sql`) sans transaction de test.
+
+### 179. Comment utiliser `@Sql`, `@DirtiesContext` et les fixtures de test efficacement ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@Sql("/data.sql")` charge des données avant un test (ou `@SqlGroup`), `@Sql(executionPhase = AFTER_TEST_METHOD)` nettoie. `@DirtiesContext` force la recréation du contexte (lent : à éviter, préférer réinitialiser l'état). Testcontainers avec réutilisation (`withReuse(true)`) et un contexte partagé rendent la suite rapide ; fixtures via builders plutôt que gros fichiers SQL.
+
+### 180. Comment fonctionne Micrometer Observation et comment instrumenter un service ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** L'API `Observation` unifie métriques et traces : `Observation.createNotStarted("order.place", registry).lowCardinalityKeyValue("type", t).observe(() -> ...)` ou `@Observed`. Boot 3 instrumente automatiquement MVC, RestClient, JDBC (avec datasource-micrometer), Kafka. Les `ObservationHandler` personnalisent ; les tags à forte cardinalité vont dans `highCardinalityKeyValue` (traces uniquement).
+
+### 181. Comment propager le contexte de trace (traceId) dans les logs, threads et messages ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Micrometer Tracing (Brave ou OTel) place `traceId`/`spanId` dans le MDC (pattern de log), propage via les headers W3C `traceparent` dans RestClient/WebClient/Kafka automatiquement, et via `ContextPropagation`/`ContextSnapshot` pour les executors (`spring.task.execution` instrumenté). Vérifier la propagation dans `@Async` et les listeners Kafka avec `observation-enabled`.
+
+### 182. Comment exporter traces et métriques vers OpenTelemetry ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp` avec `management.otlp.tracing.endpoint`, et `micrometer-registry-otlp` pour les métriques (ou Prometheus scrape). Alternative : l'agent Java OpenTelemetry (instrumentation sans code, plus complète) ; ne pas cumuler les deux. Régler l'échantillonnage (`management.tracing.sampling.probability`) en production.
+
+### 183. Comment sécuriser une application Spring Boot en production (checklist) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Actuator restreint et sur port séparé, pas de `/env` exposé, secrets hors code, TLS ou proxy avec `forward-headers-strategy`, dépendances scannées (OWASP, Dependabot), CSP/HSTS, validation systématique, `ProblemDetail` sans stack, utilisateur non-root dans l'image, logs sans données sensibles, mise à jour régulière de Boot (CVE Spring), et tests de sécurité automatisés (ZAP en CI).
+
+### 184. Comment construire un mono-repo multi-modules Spring Boot (Maven/Gradle) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un parent avec `dependencyManagement` (BOM Boot), des modules par domaine ou couche (`api`, `domain`, `infrastructure`, `app`), un seul module `app` avec le plugin Boot (`repackage`), les autres en jars ordinaires ; `spring-boot-starter-test` en scope test partout ; tests d'architecture (ArchUnit) pour les dépendances entre modules ; builds incrémentaux (Gradle) et cache CI.
+
+### 185. Comment fonctionne Spring Shell et quand créer un outil CLI en Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Spring Shell 3 expose des commandes (`@Command`) avec complétion, aide, validation et interactivité, réutilisant les beans de l'application (services, repositories) : pratique pour des outils d'administration, migrations de données ou opérations de support. Pour des CLI légers, picocli (avec support Boot) démarre plus vite, surtout en natif.
+
+### 186. Comment gérer les schémas d'événements et la sérialisation avec Spring Kafka et Avro/Protobuf ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Schema Registry (Confluent ou Apicurio) avec `KafkaAvroSerializer`/`KafkaProtobufSerializer`, classes générées au build (plugin Maven), compatibilité définie par sujet, et `specific.avro.reader=true` côté consommateur. Versionner les schémas comme du code, tester la compatibilité en CI, et éviter JSON sans schéma pour les contrats entre équipes.
+
+### 187. Comment fonctionnent les `Converter`, `Formatter` et `PropertyEditor` dans Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Le `ConversionService` convertit types de paramètres et propriétés (`String` → `Enum`, `Duration`, objets personnalisés) via des `Converter<S,T>` déclarés en beans (`WebMvcConfigurer.addFormatters`) ; `Formatter` gère la localisation (dates, nombres). `@ConfigurationPropertiesBinding` sur un converter l'applique au binding de configuration. Utile pour des identifiants typés (`OrderId`) dans les contrôleurs.
+
+### 188. Comment implémenter la pagination et le filtrage d'une API REST proprement ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Paramètres `page`/`size`/`sort` mappés sur `Pageable` (limiter `size` max via `spring.data.web.pageable.max-page-size`), réponse enveloppée (contenu, page, total) plutôt que `Page` brut, pagination par curseur (keyset) pour les grands volumes, filtres via un objet de critères validé + `Specification`, et documentation OpenAPI des paramètres. Ne pas exposer les noms de colonnes internes dans `sort`.
+
+### 189. Comment gérer les gros volumes de lecture (export CSV de millions de lignes) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Streaming de bout en bout : `JdbcTemplate.queryForStream`/`Stream<T>` JPA avec `@QueryHints(fetchSize)` dans une transaction en lecture seule, écriture ligne à ligne dans `StreamingResponseBody` ou dans un fichier S3 puis lien de téléchargement (job asynchrone), `EntityManager.detach` ou `clear` périodiquement, compression gzip. Jamais `findAll()` en mémoire.
+
+### 190. Comment utiliser les virtual threads avec JDBC, Kafka et `@Async` sans surprises ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** JDBC : la limite devient le pool HikariCP (dimensionner et surveiller `pending`). Kafka : les listeners restent limités par le nombre de partitions/concurrency. `@Async`/`@Scheduled` : `SimpleAsyncTaskExecutor` virtuel sans limite : borner avec un `Semaphore` ou `TaskDecorator`. Éviter les `ThreadLocal` lourds et les `synchronized` autour d'I/O (pinning avant Java 24) ; profiler avec JFR `VirtualThreadPinned`.
+
+### 191. Comment faire du rate limiting côté application (Bucket4j, Resilience4j) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Bucket4j (token bucket, en mémoire ou distribué via Redis/Hazelcast) dans un filtre ou intercepteur, clé par utilisateur/API key, réponse 429 avec `Retry-After`. Resilience4j `RateLimiter` pour protéger un appel sortant vers un fournisseur à quota. Placer la limite globale dans la gateway et une limite fine par ressource dans le service.
+
+### 192. Comment concevoir des événements de domaine avec Spring Modulith et les publier vers Kafka ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Publier des événements (`ApplicationEventPublisher`) dans la transaction ; Modulith les persiste (event publication registry) et les livre aux `@ApplicationModuleListener` (asynchrone, transactionnel, avec rejeu des non complétés au redémarrage). `@Externalized("orders.created")` publie automatiquement vers Kafka/AMQP/JMS, formant un outbox intégré.
+
+### 193. Comment gérer les erreurs de désérialisation et les messages empoisonnés avec Spring Kafka ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `ErrorHandlingDeserializer` enveloppe le désérialiseur pour transformer une exception en `DeserializationException` traitée par le `DefaultErrorHandler` (au lieu d'une boucle infinie), envoi en DLT avec headers d'origine, backoff exponentiel, exceptions non réessayables (`addNotRetryableExceptions`), et alerte sur le DLT. Journaliser la clé et l'offset, jamais le payload sensible.
+
+### 194. Comment gérer la configuration des timeouts de bout en bout (client, serveur, base, messagerie) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Définir un budget par requête et le décliner : `server.tomcat.connection-timeout`, `spring.mvc.async.request-timeout`, timeouts RestClient (connexion/lecture), `spring.datasource.hikari.connection-timeout` et `spring.transaction.default-timeout`, `@Transactional(timeout)`, `spring.kafka.producer.properties.delivery.timeout.ms`, timeouts du load balancer plus longs que ceux de l'application. Documenter la chaîne pour éviter les 504 mystérieux.
+
+### 195. Comment faire coexister plusieurs versions d'une API et déprécier proprement ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Contrôleurs séparés par version partageant les services, DTO versionnés, header `Deprecation`/`Sunset` sur l'ancienne version, métriques d'usage par version pour décider du retrait, documentation OpenAPI par groupe, tests de contrat sur chaque version, et politique de support annoncée (par exemple N-1 pendant 6 mois).
+
+### 196. Comment concevoir des tests d'architecture pour une application Spring ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** ArchUnit : interdire les dépendances des couches domaine vers Spring/JPA (architecture hexagonale), vérifier que les contrôleurs n'appellent pas les repositories, que `@Transactional` est sur les services, nommage des packages, absence de `field injection`. Spring Modulith `verify()` pour les dépendances entre modules. Exécutés en CI comme des tests unitaires.
+
+### 197. Comment mettre en place l'idempotence des endpoints POST ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un header `Idempotency-Key` obligatoire, stockage (Redis/base) de la clé avec l'état (en cours, terminé + réponse) et une contrainte unique pour gérer la concurrence, rejeu de la réponse enregistrée pour une clé déjà traitée, TTL de conservation, et association clé ↔ utilisateur pour éviter les collisions. Implémenté en filtre/intercepteur ou dans le service pour les opérations critiques (paiement).
+
+### 198. Comment gérer le cache HTTP côté serveur avec Spring (ETag, `Cache-Control`) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `ShallowEtagHeaderFilter` calcule un ETag sur le corps (économise la bande passante, pas le calcul) ; mieux : ETag métier (version de l'entité) avec `ResponseEntity.ok().eTag(v).cacheControl(CacheControl.maxAge(...))` et `WebRequest.checkNotModified(etag)` pour répondre 304 sans charger. Pour les mises à jour, `If-Match` implémente le verrouillage optimiste HTTP (412 en cas de conflit).
+
+### 199. Comment monitorer et alerter sur une application Spring Boot en production (indicateurs clés) ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Taux d'erreur 5xx et latence p95/p99 par endpoint (`http.server.requests`), saturation des pools (Tomcat threads, HikariCP pending), GC et heap, lag Kafka, échecs de circuit breakers, health des dépendances, taux de logs ERROR, et métriques métier (commandes/min). Alertes basées sur des SLO (burn rate) plutôt que sur des seuils de CPU.
+
+### 200. Quelles sont les nouveautés de Spring Boot 4 et Spring Framework 7 à connaître ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Java 17+ (21 recommandé), Jakarta EE 11, Jackson 3, modularisation des starters (`spring-boot-webmvc`, `spring-boot-jackson`), versioning d'API natif, `@HttpExchange` avec enregistrement simplifié, résilience intégrée (`@Retryable`, `@ConcurrencyLimit` dans le framework), Null-safety JSpecify, suppression des APIs dépréciées (`RestTemplate` reste mais `WebClient`/`RestClient` recommandés), et support renforcé de GraalVM/AOT. Vérifier le guide de migration officiel.

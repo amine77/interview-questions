@@ -2,7 +2,7 @@
 
 > Signals, standalone components, control flow, SSR, Zoneless, RxJS integration
 
-**51 questions**
+**101 questions**
 
 ---
 
@@ -260,3 +260,253 @@
 `🔴 Avancé` · Sujet : **Angular**
 
 **Réponse :** Par étapes avec les schematics officiels : `ng g @angular/core:standalone` (3 étapes : convertir les déclarations, supprimer les modules inutiles, basculer le bootstrap), puis `control-flow`, `inject`, `signal-input-migration` et `output-migration`. Migrer feature par feature, garder les tests verts, et introduire `OnPush` avant d'envisager le zoneless.
+
+### 52. Qu'est-ce qu'Angular et comment est structurée une application moderne (v17-21) ?
+`🟢 Débutant` · Sujet : **Angular**
+
+**Réponse :** Un framework TypeScript complet (routing, formulaires, HTTP, DI, tests, CLI). Une application moderne est composée de composants standalone, d'un `app.config.ts` avec des `provide*` fonctionnels, de `app.routes.ts` avec lazy loading, de services injectables, de Signals pour l'état, et du build esbuild/Vite via `@angular/build`. Les NgModules ne sont plus nécessaires.
+
+### 53. Quel est le rôle de la CLI Angular et quelles commandes clés ?
+`🟢 Débutant` · Sujet : **Angular**
+
+**Réponse :** `ng new`, `ng generate component|service|directive|pipe`, `ng serve` (dev server Vite, HMR), `ng build` (esbuild, budgets), `ng test` (Karma historique, Vitest/Jest via `@angular/build:unit-test`), `ng lint`, `ng update` (migrations automatiques de version), `ng add` (schematics d'intégration). Les schematics personnalisés standardisent la structure d'une équipe.
+
+### 54. Différence entre composant, directive et pipe ?
+`🟢 Débutant` · Sujet : **Angular**
+
+**Réponse :** Composant : directive avec template, unité d'UI. Directive d'attribut : modifie le comportement/l'apparence d'un élément (`[appHighlight]`) ; directive structurelle : modifie le DOM (`*ngIf` historique, remplacée par `@if`). Pipe : transforme une valeur dans le template (`| date`, `| async`, pipes purs mis en cache). Tous sont des classes décorées et standalone par défaut.
+
+### 55. Comment fonctionne la communication parent-enfant avec les Signals (`input`, `output`, `model`) ?
+`🟢 Débutant` · Sujet : **Angular**
+
+**Réponse :** `name = input.required<string>()` déclare une entrée typée lue comme un signal ; `changed = output<string>()` émet vers le parent (`(changed)="..."`) ; `value = model<number>()` crée un two-way binding `[(value)]`. Ils remplacent `@Input`/`@Output`, s'intègrent aux `computed`/`effect` et supportent les transformations (`input(0, { transform: numberAttribute })`).
+
+### 56. Qu'est-ce que le template syntax : interpolation, bindings, événements, référence de template ?
+`🟢 Débutant` · Sujet : **Angular**
+
+**Réponse :** `{{ expr }}` interpolation, `[prop]="expr"` property binding, `(event)="handler($event)"`, `[(ngModel)]` two-way, `#ref` référence locale, `@if/@for/@switch` contrôle de flux, `@let` (v18.1) pour déclarer une variable locale dans le template. Les expressions doivent rester simples et pures (pas d'appels coûteux : utiliser `computed`).
+
+### 57. Comment fonctionne le `@for` et pourquoi `track` est-il obligatoire ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `@for (item of items(); track item.id) { ... } @empty { ... }` : `track` identifie chaque élément pour que le DOM soit réutilisé plutôt que recréé lors des changements (performance, état des composants conservé). Utiliser un identifiant stable, `$index` uniquement pour les listes statiques. Variables contextuelles : `$index`, `$first`, `$last`, `$count`.
+
+### 58. Différence entre `computed`, `effect` et `linkedSignal`, et quand utiliser chacun ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `computed` : valeur dérivée pure, mise en cache, recalculée paresseusement (à privilégier). `effect` : effet de bord réagissant aux signaux lus (log, synchronisation localStorage, appel impératif), sans écrire dans d'autres signaux par défaut. `linkedSignal` : signal écrivable dont la valeur par défaut se réinitialise quand une source change (sélection dans une liste rechargée).
+
+### 59. Qu'est-ce que `httpResource` et `resource` et comment les utiliser pour charger des données ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `resource({ params: () => ({ id: this.id() }), loader: ({ params, abortSignal }) => fetch(...) })` recharge automatiquement quand ses paramètres signal changent, expose `value()`, `isLoading()`, `error()`, `reload()`, et annule les requêtes obsolètes. `httpResource` (v19.2+) fait de même au-dessus de `HttpClient` (`httpResource(() => `/api/users/${id()}`)`). Ils remplacent les `switchMap` + `subscribe` pour les lectures.
+
+### 60. Comment structurer l'état d'une application Angular : services à Signals, NgRx SignalStore, ou NgRx Store ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Petite/moyenne application : services `providedIn: 'root'` exposant des signaux (`private _items = signal([])`, `items = this._items.asReadonly()`, `computed`). Besoins structurés : NgRx SignalStore (`signalStore`, `withState`, `withComputed`, `withMethods`, `rxMethod`) léger et typé. Grande équipe avec traçabilité : NgRx Store (actions, reducers, effects, devtools) au prix du boilerplate. Éviter les états dupliqués entre composants.
+
+### 61. Qu'est-ce que NgRx SignalStore et ses concepts (`withState`, `withMethods`, `rxMethod`, `patchState`) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Un store fonctionnel basé sur les signaux : `signalStore({ providedIn: 'root' }, withState({ users: [], loading: false }), withComputed(...), withMethods((store, api = inject(Api)) => ({ load: rxMethod<void>(pipe(switchMap(() => api.list()), tap(u => patchState(store, { users: u }))) })), withHooks({ onInit }))`. Extensible par des « features » personnalisées (`withEntities`, `withDevtools`). Bien moins verbeux que le Store classique.
+
+### 62. Comment fonctionne l'injection de dépendances dans les templates et les routes (`inject`, `providers` de route, `EnvironmentInjector`) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `inject()` fonctionne dans les constructeurs, initialisateurs de champs, guards/resolvers fonctionnels et `runInInjectionContext`. Une route peut déclarer `providers: [...]` créant un `EnvironmentInjector` enfant : le service vit tant que la route est active (état par fonctionnalité). Les composants fournissent des services locaux via `providers` (une instance par composant).
+
+### 63. Qu'est-ce que le `DestroyRef` et `takeUntilDestroyed` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `DestroyRef` (v16) permet d'enregistrer un callback à la destruction du composant/service/injecteur (`inject(DestroyRef).onDestroy(...)`) sans implémenter `OnDestroy`. `takeUntilDestroyed()` (dans un contexte d'injection, ou avec `destroyRef` en paramètre) complète automatiquement un observable à la destruction : la façon idiomatique de gérer les abonnements.
+
+### 64. Comment fonctionnent les Route Guards, Resolvers et les `withComponentInputBinding` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Guards fonctionnels (`canActivate: [() => inject(Auth).isLoggedIn() || inject(Router).createUrlTree(['/login'])]`), `canMatch` pour choisir des routes selon le rôle ou lazy-loader conditionnellement, `canDeactivate` pour les formulaires non sauvegardés, resolvers pour précharger (attention à l'attente perçue : préférer `resource` dans le composant + skeleton). `withComponentInputBinding()` mappe params, query params et data de route directement sur les `input()` du composant.
+
+### 65. Comment implémenter des routes imbriquées, des `outlet` nommés et des layouts ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Routes `children` rendues dans le `<router-outlet>` du composant parent (layout avec header/sidebar), routes sans composant (`path: 'admin', canActivate, children`) pour grouper, `outlet: 'modal'` pour des outlets secondaires (dialogues avec URL), `loadChildren` pour lazy-loader une branche entière, et `title` de route (statique ou `TitleStrategy`) pour l'onglet du navigateur.
+
+### 66. Comment fonctionnent les stratégies de preloading et `PreloadAllModules` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Après le chargement initial, le router peut précharger les routes lazy en arrière-plan : `withPreloading(PreloadAllModules)` ou une stratégie personnalisée (par `data: { preload: true }`, selon la connexion réseau ou le rôle). Cela accélère les navigations suivantes sans alourdir le premier chargement. Combinable avec `@defer (on idle)` pour les composants lourds.
+
+### 67. Quels déclencheurs et blocs offre `@defer` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Déclencheurs : `on idle` (défaut), `on viewport`, `on interaction`, `on hover`, `on timer(2s)`, `on immediate`, `when condition()`, et `prefetch on ...` pour charger le code avant de l'afficher. Blocs : `@placeholder (minimum 500ms)`, `@loading (after 100ms; minimum 1s)`, `@error`. Le contenu différé est extrait en chunk séparé automatiquement.
+
+### 68. Comment gérer les formulaires réactifs typés (Typed Forms) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Depuis v14, `FormGroup`/`FormControl` sont typés : `new FormGroup({ email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }) })`, `FormBuilder.nonNullable`, `form.getRawValue()` typé, `form.controls.email.value` sans `any`. Les groupes dynamiques utilisent `FormRecord`. Cela détecte les erreurs de nom de champ à la compilation.
+
+### 69. Comment implémenter des validateurs asynchrones et des validations croisées ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Validateur asynchrone : fonction retournant `Observable<ValidationErrors | null>` (vérifier la disponibilité d'un e-mail), avec `debounceTime`/`switchMap` et `updateOn: 'blur'` pour limiter les appels ; état `pending`. Validation croisée : validateur sur le `FormGroup` comparant deux champs (mot de passe/confirmation), erreur affichée au niveau groupe. Toujours revalider côté serveur.
+
+### 70. Comment créer un composant de formulaire personnalisé avec `ControlValueAccessor` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Implémenter `writeValue`, `registerOnChange`, `registerOnTouched`, `setDisabledState`, et déclarer `providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => MyInput), multi: true }]`. Le composant devient utilisable avec `formControlName`/`ngModel`. Pour accéder aussi aux validateurs, injecter `NgControl` (`@Self() @Optional()`) et s'y attacher comme accessor.
+
+### 71. Comment fonctionne `HttpClient` avec les Signals et les intercepteurs fonctionnels ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `provideHttpClient(withInterceptors([authInterceptor, loggingInterceptor]), withFetch())` ; un intercepteur est une fonction `(req, next) => next(req.clone({ setHeaders }))` pouvant utiliser `inject()`. Consommer avec `toSignal(http.get(...))`, `httpResource`, ou `rxResource`. `withFetch` active l'API Fetch (nécessaire pour SSR et le streaming).
+
+### 72. Comment gérer l'authentification (jeton, refresh, 401) côté Angular ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Un intercepteur ajoute `Authorization` ; sur 401, rafraîchir le jeton (une seule fois, file d'attente des requêtes concurrentes) puis rejouer, sinon rediriger vers le login. Préférer un flux OIDC code + PKCE (angular-oauth2-oidc, oidc-client-ts) avec jetons en mémoire, ou un BFF avec cookies `HttpOnly` et `withXsrfConfiguration`. Guards `canMatch` pour les routes protégées ; ne jamais faire confiance au front pour l'autorisation.
+
+### 73. Comment gérer les erreurs globalement (`ErrorHandler`, intercepteur, notifications) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Un `ErrorHandler` personnalisé (`provide: ErrorHandler`) capture les erreurs non gérées (log, Sentry) ; un intercepteur HTTP convertit les erreurs réseau/API en messages utilisateur (toast) et gère les cas transverses (401, 503, maintenance) ; les composants gèrent localement ce qui a du sens (retry, formulaire). Éviter de masquer les erreurs et journaliser avec contexte (route, utilisateur anonymisé).
+
+### 74. Comment fonctionne la détection de changement et que change le mode zoneless ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Historiquement, Zone.js intercepte les événements asynchrones et déclenche une vérification de tout l'arbre (ou des composants OnPush marqués). En zoneless (stable v20+ via `provideZonelessChangeDetection()`), Angular ne se déclenche que sur les signaux modifiés, les événements de template, `markForCheck`/`AsyncPipe`, et les `input` changés : moins de travail, bundle plus léger, mais le code doit passer par les signaux ou notifier explicitement.
+
+### 75. Comment migrer une application vers OnPush + Signals + zoneless ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Étapes : activer OnPush sur tous les composants (schematic), remplacer `@Input/@Output` par `input()/output()` (migration `ng generate @angular/core:signal-inputs`), convertir les états locaux en `signal`, les observables affichés en `toSignal` ou `AsyncPipe`, remplacer `setTimeout` de contournement par des signaux, tester avec `provideZonelessChangeDetection` puis retirer Zone.js des polyfills.
+
+### 76. Qu'est-ce que `afterRender`, `afterNextRender` et `afterRenderEffect` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Des hooks (v17+) exécutés après le rendu du DOM, côté navigateur uniquement (ignorés en SSR) : pour mesurer des éléments, initialiser une bibliothèque tierce (charts, cartes) ou manipuler le DOM. `afterNextRender` s'exécute une fois ; `afterRenderEffect` (v19) réagit aux signaux avec des phases (`earlyRead`, `write`, `mixedReadWrite`, `read`) pour éviter le layout thrashing.
+
+### 77. Comment intégrer une bibliothèque JavaScript tierce (chart, carte) dans un composant ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Injecter `ElementRef` ou utiliser `viewChild`, initialiser dans `afterNextRender` (compatibilité SSR), détruire dans `DestroyRef.onDestroy`, réagir aux données via `effect`/`afterRenderEffect`, encapsuler dans un composant dédié avec `input()`s, lazy-loader la bibliothèque (`import()` dynamique ou `@defer`), et sortir des mises à jour fréquentes de la zone (`NgZone.runOutsideAngular`) si Zone.js est encore actif.
+
+### 78. Comment fonctionnent `viewChild`, `contentChildren` en version signal ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `chart = viewChild.required<ElementRef>('chart')`, `items = contentChildren(ItemComponent)` retournent des signaux mis à jour par Angular : disponibles dans `computed`/`effect`, sans `static` ni `ngAfterViewInit`. `viewChild` renvoie `undefined` avant le rendu ; `required` lève une erreur s'il manque. Ils remplacent `@ViewChild`/`@ContentChildren`.
+
+### 79. Comment créer une directive réutilisable avec `hostDirectives` (composition de directives) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `@Component({ hostDirectives: [{ directive: CdkMenuTrigger, inputs: ['cdkMenuTriggerFor: menu'] }, DisabledDirective] })` applique automatiquement des directives à l'hôte du composant et expose leurs inputs/outputs sous un alias. Cela compose des comportements (tooltip, tracking, a11y) sans héritage et sans que l'utilisateur du composant ait à les ajouter.
+
+### 80. Comment fonctionne le `host` metadata et pourquoi le préférer à `@HostBinding`/`@HostListener` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `host: { '[class.active]': 'active()', '(click)': 'toggle()', 'role': 'button' }` déclare bindings et écouteurs sur l'élément hôte dans le décorateur ; le style guide moderne le recommande car plus lisible, groupé, et compatible avec les signaux. Les décorateurs restent supportés.
+
+### 81. Comment fonctionnent les styles : encapsulation, `:host`, `::ng-deep`, et les variables CSS ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Par défaut `ViewEncapsulation.Emulated` ajoute des attributs pour isoler les styles du composant ; `:host` cible l'élément hôte, `:host-context` le contexte parent. `::ng-deep` perce l'encapsulation (déprécié, à éviter). Pour thématiser des enfants, utiliser des variables CSS (`--primary`), des `@Input` de classes, ou les APIs de thème (Angular Material `mat.theme`). `ShadowDom` utilise le vrai Shadow DOM.
+
+### 82. Comment utiliser Angular Material et le CDK efficacement ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Material fournit les composants Material Design 3 (v18+ avec thème via `@use '@angular/material' as mat; mat.theme(...)`) ; le CDK fournit des briques sans style : overlay (menus, dialogues), drag-drop, virtual scroll, a11y (focus trap, live announcer), tables, layout. Importer par composant (standalone), personnaliser via tokens de thème plutôt que `::ng-deep`, et tester avec les component harnesses.
+
+### 83. Qu'est-ce que les component harnesses (`@angular/cdk/testing`) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Une API de test qui interagit avec un composant comme un utilisateur via une abstraction stable (`MatButtonHarness.with({ text: 'Save' })`, `harness.click()`), indépendante du DOM interne de la bibliothèque et utilisable en tests unitaires et E2E (Protractor historique, Playwright/WebdriverIO). On écrit des harnesses pour ses propres composants partagés.
+
+### 84. Comment tester avec Vitest/Jest et l'API `TestBed` moderne (`inputs`, `bindings`) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `ng test` supporte Vitest via le builder `@angular/build:unit-test` (v20+, plus rapide que Karma). `TestBed.configureTestingModule({ imports: [MyComponent], providers })`, `TestBed.createComponent(MyComponent, { bindings: [inputBinding('name', signal('x'))] })` (v20), `fixture.componentRef.setInput`, `await fixture.whenStable()`, `provideHttpClientTesting` + `HttpTestingController`, `TestBed.inject`. Préférer les tests via le DOM (Testing Library for Angular) aux tests d'implémentation.
+
+### 85. Comment écrire des tests E2E d'une application Angular (Playwright, Cypress) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Playwright ou Cypress lancés contre `ng serve` ou un build servi ; sélecteurs par rôle/texte/`data-testid` plutôt que par classes ; mocks réseau (`page.route`, `cy.intercept`) pour les cas d'erreur ; authentification par état sauvegardé ; tests des parcours critiques uniquement (la pyramide reste unitaire/intégration en majorité) ; exécution parallèle en CI avec traces et vidéos sur échec.
+
+### 86. Comment configurer le SSR moderne (`@angular/ssr`) et le rendu par route (`RenderMode`) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `ng add @angular/ssr` crée `server.ts` (Express ou `AngularNodeAppEngine`) et `app.config.server.ts`. Le `serverRoutes` (v19+) définit par route `RenderMode.Prerender` (statique au build, avec `getPrerenderParams`), `Server` (SSR à chaque requête) ou `Client` (CSR). L'hydration (`provideClientHydration(withEventReplay(), withIncrementalHydration())`) réutilise le DOM serveur.
+
+### 87. Quels sont les pièges du SSR Angular (APIs navigateur, HTTP, état) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Accès à `window`/`document`/`localStorage` côté serveur (protéger par `isPlatformBrowser`, `afterNextRender`, ou abstractions), appels HTTP relatifs sans base URL, double appel HTTP (le `TransferState` via `withHttpTransferCacheOptions` évite de refaire côté client), fuites d'état entre requêtes (services `providedIn: 'root'` sont par requête côté serveur, mais attention aux variables globales), et temps de rendu serveur à surveiller.
+
+### 88. Comment fonctionnent les budgets de build et l'analyse du bundle ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `angular.json` définit `budgets` (`initial`, `anyComponentStyle`) faisant échouer le build au-delà d'un seuil. Analyser avec `ng build --stats-json` + `esbuild-visualizer`/`source-map-explorer` pour repérer les grosses dépendances (moment → date-fns/Temporal, lodash complet → imports ciblés, icônes), et vérifier que le lazy loading découpe bien les routes.
+
+### 89. Comment gérer les images, polices et assets pour la performance ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `NgOptimizedImage` (`ngSrc`, `priority` pour le LCP, `fill`, loaders CDN, `sizes`), formats modernes (AVIF/WebP), préchargement des polices critiques (`<link rel="preload">`, `font-display: swap`), dossier `public/` (v18+) pour les assets, hachage des noms de fichiers par le build pour le cache long, et lazy loading des composants lourds avec `@defer (on viewport)`.
+
+### 90. Comment implémenter le virtual scrolling et les listes performantes ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `cdk-virtual-scroll-viewport` avec `*cdkVirtualFor` (ou `@for` dans les versions récentes) ne rend que les éléments visibles (`itemSize` fixe, ou `autosize` expérimental). Combiner avec `track` stables, OnPush, `computed` pour le filtrage, et pagination côté serveur au-delà de quelques milliers d'éléments.
+
+### 91. Comment gérer l'accessibilité dans Angular (a11y) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** HTML sémantique, `aria-*` bindings (`[attr.aria-expanded]`), gestion du focus lors des navigations (`FocusMonitor`, `cdkTrapFocus` dans les dialogues, focus sur le titre après changement de route), `LiveAnnouncer` pour les messages dynamiques, contraste et tailles cibles, tests avec `@angular-eslint/template/accessibility` rules et axe (Playwright/Storybook). Angular Material et le CDK intègrent la plupart des patterns ARIA.
+
+### 92. Qu'est-ce que l'internationalisation runtime (Transloco, ngx-translate) vs `@angular/localize` ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `@angular/localize` : traductions extraites (`ng extract-i18n`), compilées par locale au build (un bundle par langue, très performant, changement de langue par rechargement). Transloco/ngx-translate : fichiers JSON chargés à l'exécution, changement de langue à chaud, plus souple pour les traductions gérées par le métier. Choisir selon la nécessité du changement dynamique.
+
+### 93. Comment créer et publier une bibliothèque Angular (ng-packagr, monorepo Nx) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `ng generate library` produit un projet compilé par ng-packagr au format Angular Package Format (ESM, `d.ts`, partial compilation) ; `public-api.ts` définit l'API publique ; dépendances en `peerDependencies` ; versionner en SemVer ; tests et Storybook. Dans un monorepo Nx, les bibliothèques sont importées par alias TypeScript et les builds affectés sont calculés par graphe.
+
+### 94. Qu'est-ce que le pattern « smart/dumb components » et comment l'appliquer avec les signaux ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Composants « smart » (containers) : injectent les services/stores, orchestrent les données et les actions. Composants « dumb » (presentational) : `input()`/`output()` uniquement, OnPush, réutilisables et faciles à tester/Storybook. Avec les signaux, les containers passent des signaux ou valeurs aux inputs, et les enfants émettent des événements ; l'état reste centralisé.
+
+### 95. Comment organiser un projet Angular de grande taille (feature-based, barrels, ESLint boundaries) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Dossiers par fonctionnalité (`features/orders/` avec routes, composants, store, api), `shared/` (UI pure), `core/` (services transverses, intercepteurs), routes lazy par feature, règles ESLint (`@nx/enforce-module-boundaries` ou `eslint-plugin-boundaries`) interdisant les imports entre features, barrels avec parcimonie (cycles, tree shaking), et ADR pour les conventions d'état.
+
+### 96. Comment fonctionne le style guide Angular 2025 et quelles conventions ont changé ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Fichiers sans suffixe de type obligatoire (`user-profile.ts` au lieu de `.component.ts`, `ng g` v20+), classes sans suffixe (`UserProfile`), `protected` pour les membres utilisés uniquement par le template, `readonly` sur les `input()`/`viewChild()`, `host` au lieu des décorateurs, `inject()` au lieu de l'injection constructeur, standalone implicite, préférence pour `class`/`style` bindings plutôt que `ngClass`/`ngStyle`.
+
+### 97. Comment gérer les mises à jour de version Angular (`ng update`) et les breaking changes ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Mettre à jour une version majeure à la fois (`ng update @angular/core@20 @angular/cli@20`), lire le guide update.angular.dev, appliquer les migrations automatiques (control flow, standalone, signal inputs), mettre à jour Material/CDK/NgRx en parallèle, vérifier TypeScript et Node compatibles, exécuter tests et build avec budgets, et traiter les dépréciations avant la version suivante. Rester au plus N-1 des LTS.
+
+### 98. Comment fonctionne l'hydration avec event replay et incremental hydration ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `withEventReplay()` enregistre les interactions utilisateur survenues avant l'hydration et les rejoue ensuite (aucun clic perdu). `withIncrementalHydration()` (v19) n'hydrate les blocs `@defer (hydrate on viewport|interaction|idle)` que lorsque nécessaire, en gardant le HTML serveur visible : moins de JavaScript exécuté au chargement, TTI amélioré sur les grandes pages.
+
+### 99. Comment sécuriser une application Angular (XSS, sanitization, CSP, Trusted Types) ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Angular échappe les interpolations et sanitize `innerHTML`, `href`, `style` ; `bypassSecurityTrust*` est un point d'audit (uniquement sur du contenu contrôlé). Déployer une CSP stricte (nonce pour les styles inline générés via `ngCspNonce`), Trusted Types supportés, éviter `eval`/templates dynamiques, `withXsrfConfiguration` pour le CSRF, dépendances auditées (`npm audit`), et ne jamais stocker de secrets dans le bundle (`environment.ts` est public).
+
+### 100. Comment implémenter le mode hors ligne et une PWA avec Angular ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** `ng add @angular/pwa` ajoute le service worker Angular (`ngsw-config.json` : stratégies de cache des assets et des appels API `performance`/`freshness`), le manifeste et les icônes. `SwUpdate` détecte les nouvelles versions et propose le rechargement ; `SwPush` gère les notifications push. Tester en build de production (le SW est inactif en `ng serve`), et gérer la synchronisation différée des écritures (IndexedDB + Background Sync).
+
+### 101. Quelles sont les nouveautés d'Angular 20 et 21 à connaître ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** v20 : signaux stables (`effect`, `linkedSignal`, `toSignal`), zoneless en developer preview → stable, `httpResource`, style guide révisé, Vitest expérimental, `TestBed` bindings, support TypeScript 5.8, Chrome DevTools intégration. v21 (nov. 2025) : zoneless par défaut pour les nouveaux projets, Vitest par défaut, Signal Forms expérimentaux, Angular Aria (composants headless accessibles), MCP server pour les assistants IA, et `Angular CLI` sur esbuild uniquement. Vérifier le blog officiel pour les détails.
