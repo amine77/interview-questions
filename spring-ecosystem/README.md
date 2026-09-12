@@ -2,7 +2,7 @@
 
 > Spring Core, Boot, Data, Batch, Cloud, Security, Actuator
 
-**37 questions**
+**50 questions**
 
 ---
 
@@ -190,3 +190,68 @@
 `🟠 Intermédiaire` · Sujet : **Cloud-ready Spring Boot**
 
 **Réponse :** Le liveness probe indique si l'application est vivante. Le readiness probe indique si elle est prête à recevoir du trafic. Spring Boot Actuator les expose via /actuator/health/liveness et /readiness.
+
+### 38. Comment fonctionne `@Transactional` et quels sont ses pièges classiques ?
+`🟠 Intermédiaire` · Sujet : **Spring**
+
+**Réponse :** Spring crée un proxy autour du bean : il ouvre une transaction avant la méthode, commit après, rollback sur `RuntimeException` (pas sur les checked par défaut). Pièges : appel interne `this.method()` qui contourne le proxy, méthode `private` ou `final` non interceptée, `rollbackFor` oublié pour les exceptions checked, et transaction trop longue englobant des appels réseau.
+
+### 39. Quels sont les niveaux de propagation de transaction et à quoi sert `REQUIRES_NEW` ?
+`🔴 Avancé` · Sujet : **Spring**
+
+**Réponse :** `REQUIRED` (défaut) rejoint la transaction existante ou en crée une. `REQUIRES_NEW` suspend la transaction courante et en ouvre une indépendante, utile pour persister un log d'audit même si la transaction principale échoue. `SUPPORTS`, `MANDATORY`, `NOT_SUPPORTED`, `NEVER` et `NESTED` (savepoint) couvrent les autres cas.
+
+### 40. Différence entre `@RestControllerAdvice` et un `@ExceptionHandler` local ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@ExceptionHandler` dans un contrôleur ne s'applique qu'à ce contrôleur. `@RestControllerAdvice` centralise la gestion des exceptions pour toute l'application et permet de renvoyer un format d'erreur uniforme, idéalement `ProblemDetail` (RFC 9457) supporté nativement par Spring 6.
+
+### 41. Qu'est-ce que `@ConfigurationProperties` et pourquoi le préférer à `@Value` ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `@ConfigurationProperties` lie un préfixe de configuration à un POJO/record typé, avec validation (`@Validated`), métadonnées pour l'IDE et support des listes/maps. `@Value` reste pratique pour une valeur isolée mais disperse la configuration et ne se valide pas au démarrage.
+
+### 42. Différence entre `FetchType.LAZY` et `EAGER`, et qu'est-ce que la `LazyInitializationException` ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** `EAGER` charge la relation immédiatement, `LAZY` à la première utilisation via un proxy. La `LazyInitializationException` survient quand on accède à une relation lazy hors session Hibernate (transaction fermée, par exemple dans la sérialisation JSON). Solutions : `@EntityGraph`, `JOIN FETCH`, DTO/projection, ou charger les données dans la transaction (jamais `open-in-view=true` en production).
+
+### 43. Comment gérer la pagination et le tri avec Spring Data ?
+`🟠 Intermédiaire` · Sujet : **Spring Data**
+
+**Réponse :** On passe un `Pageable` (`PageRequest.of(page, size, Sort.by("name"))`) au repository, qui renvoie un `Page<T>` (contenu + total + métadonnées) ou un `Slice<T>` (sans `COUNT`, plus léger). Côté web, Spring résout automatiquement `?page=0&size=20&sort=name,desc` en `Pageable`.
+
+### 44. Comment implémenter le verrouillage optimiste avec JPA ?
+`🔴 Avancé` · Sujet : **Spring Data**
+
+**Réponse :** Ajouter un champ annoté `@Version` (entier ou timestamp). Hibernate inclut la version dans le `WHERE` de l'`UPDATE` et l'incrémente ; si aucune ligne n'est affectée, il lève `OptimisticLockException`. C'est la stratégie par défaut pour les conflits rares ; `@Lock(PESSIMISTIC_WRITE)` sert aux cas de forte contention.
+
+### 45. Comment fonctionne la sécurité par méthode avec `@PreAuthorize` ?
+`🔴 Avancé` · Sujet : **Spring Sécurité**
+
+**Réponse :** Activée par `@EnableMethodSecurity`, elle évalue une expression SpEL avant l'appel (`hasRole('ADMIN')`, `#id == authentication.principal.id`). Elle repose sur un proxy AOP, donc mêmes limites que `@Transactional` (appels internes non interceptés). `@PostAuthorize` et `@PostFilter` permettent de filtrer sur le résultat.
+
+### 46. Comment valider un JWT dans un Resource Server Spring Security ?
+`🔴 Avancé` · Sujet : **Spring Sécurité**
+
+**Réponse :** Avec `spring-boot-starter-oauth2-resource-server` et `spring.security.oauth2.resourceserver.jwt.issuer-uri`, Spring télécharge les clés publiques (JWKS) de l'issuer, vérifie signature, expiration, audience, et convertit les claims en `Authentication`. Un `JwtAuthenticationConverter` personnalisé permet de mapper les rôles/scopes en `GrantedAuthority`.
+
+### 47. Qu'est-ce qu'un `starter` Spring Boot et comment créer le sien ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** Un starter est une dépendance regroupant les librairies et une auto-configuration cohérente (`spring-boot-starter-web`). Créer le sien : un module `xxx-autoconfigure` avec des classes `@AutoConfiguration` conditionnelles (`@ConditionalOnClass`, `@ConditionalOnMissingBean`) déclarées dans `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, et un module `xxx-starter` qui l'agrège.
+
+### 48. Différence entre `RestTemplate`, `WebClient` et le nouveau `RestClient` ?
+`🟠 Intermédiaire` · Sujet : **Spring Boot**
+
+**Réponse :** `RestTemplate` : API synchrone historique, en maintenance. `WebClient` : réactif non bloquant (WebFlux), adapté aux flux et à la haute concurrence. `RestClient` (Spring 6.1) : API fluide moderne et synchrone, sans dépendance réactive, recommandé pour les nouvelles applications Spring MVC ; il peut être exposé via des interfaces déclaratives `@HttpExchange`.
+
+### 49. Comment gérer les retries et timeouts avec Resilience4j dans Spring Boot ?
+`🔴 Avancé` · Sujet : **Cloud-ready Spring Boot**
+
+**Réponse :** Les annotations `@Retry`, `@TimeLimiter`, `@CircuitBreaker`, `@RateLimiter` et `@Bulkhead` se configurent dans `application.yml` par instance nommée (nombre de tentatives, backoff exponentiel, exceptions à ignorer). L'ordre d'application par défaut est Retry > CircuitBreaker > RateLimiter > TimeLimiter > Bulkhead, et les métriques sont exposées via Actuator/Micrometer.
+
+### 50. Comment redémarrer un job Spring Batch échoué et à quoi servent les `JobParameters` ?
+`🔴 Avancé` · Sujet : **Spring Batch**
+
+**Réponse :** Le `JobRepository` mémorise l'`ExecutionContext` de chaque step ; relancer le job avec les mêmes `JobParameters` reprend au dernier chunk commité si le step est `restartable`. Les `JobParameters` identifient une instance de job : des paramètres identiques sur un job déjà `COMPLETED` provoquent `JobInstanceAlreadyCompleteException`, d'où l'ajout d'un paramètre unique (timestamp) via `RunIdIncrementer`.

@@ -2,7 +2,7 @@
 
 > Java 8-21, Virtual Threads, GC, JIT, concurrency, memory leaks, thread dumps
 
-**41 questions**
+**50 questions**
 
 ---
 
@@ -210,3 +210,48 @@
 `🟠 Intermédiaire` · Sujet : **Troubleshooting Java/K8s**
 
 **Réponse :** La limite mémoire du conteneur doit couvrir aussi la mémoire native (metaspace, stacks, buffers directs), souvent sous-estimée.
+
+### 42. Qu'est-ce qu'un `record` et quelles contraintes impose-t-il ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Un record est une classe immuable déclarée de façon concise (`record Point(int x, int y)`) qui génère automatiquement constructeur canonique, accesseurs, `equals`, `hashCode` et `toString`. Ses champs sont `final`, il ne peut pas hériter d'une autre classe (mais peut implémenter des interfaces) et on peut y ajouter des constructeurs compacts pour valider les invariants.
+
+### 43. Qu'est-ce qu'une `sealed class` et quel problème résout-elle ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Une classe/interface `sealed` restreint explicitement la liste de ses sous-types (`permits`). Combinée au pattern matching sur `switch`, elle permet au compilateur de vérifier l'exhaustivité des cas, ce qui rend la modélisation de types algébriques (ex : `Result = Success | Failure`) sûre et lisible.
+
+### 44. Expliquez le Java Memory Model (JMM) et la relation happens-before.
+`🔴 Avancé` · Sujet : **Multithreading**
+
+**Réponse :** Le JMM définit quand une écriture effectuée par un thread est visible par un autre. La relation happens-before est garantie par `synchronized`, `volatile`, le démarrage/join de threads, les `java.util.concurrent` locks et les classes atomiques. Sans elle, le compilateur et le CPU peuvent réordonner les instructions et un thread peut lire une valeur périmée en cache.
+
+### 45. Différence entre `ConcurrentHashMap` et `Collections.synchronizedMap()` ?
+`🔴 Avancé` · Sujet : **Multithreading**
+
+**Réponse :** `synchronizedMap` verrouille toute la map à chaque opération (un seul thread à la fois). `ConcurrentHashMap` utilise un verrouillage fin par bucket/nœud et des lectures sans verrou, offrant un débit bien supérieur en forte concurrence, plus des opérations atomiques composées (`computeIfAbsent`, `merge`).
+
+### 46. Quelles sont les principales différences entre `HashMap`, `LinkedHashMap` et `TreeMap` ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** `HashMap` : accès O(1), aucun ordre garanti. `LinkedHashMap` : même performance, conserve l'ordre d'insertion (ou d'accès, utile pour un cache LRU). `TreeMap` : arbre rouge-noir, clés triées, opérations en O(log n), permet les requêtes par plage (`headMap`, `ceilingKey`).
+
+### 47. Pourquoi doit-on redéfinir `hashCode()` quand on redéfinit `equals()` ?
+`🟠 Intermédiaire` · Sujet : **Java**
+
+**Réponse :** Le contrat impose que deux objets égaux selon `equals` aient le même `hashCode`. Sinon, deux objets « égaux » atterrissent dans des buckets différents d'une `HashMap`/`HashSet`, et la structure ne les retrouvera plus (doublons, `contains` faux).
+
+### 48. Différence entre `Stream` séquentiel et `parallelStream()` : quand le parallélisme est-il contre-productif ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** `parallelStream()` découpe le traitement sur le `ForkJoinPool` commun. C'est rentable sur de grandes collections avec des opérations CPU-bound et sans état partagé. C'est contre-productif sur de petites collections, des opérations I/O bloquantes (le pool commun se retrouve saturé), ou des sources difficiles à découper (`LinkedList`, `iterate`).
+
+### 49. Comment diagnostiquer une consommation CPU anormale d'une JVM en production ?
+`🔴 Avancé` · Sujet : **Troubleshooting Java**
+
+**Réponse :** Identifier le thread natif fautif avec `top -H -p <pid>`, convertir son id en hexadécimal, puis le retrouver dans un `jstack` (`nid=0x...`). On peut aussi utiliser JFR (`jcmd <pid> JFR.start`) ou async-profiler pour obtenir un flame graph. Les causes fréquentes : boucle infinie, GC excessif (vérifier avec `jstat -gcutil`), regex catastrophique, sérialisation JSON massive.
+
+### 50. Qu'est-ce que le GraalVM Native Image et quels compromis implique-t-il ?
+`🔴 Avancé` · Sujet : **Optimisation Java**
+
+**Réponse :** Native Image compile l'application en exécutable natif via une analyse statique à la compilation (closed-world). Avantages : démarrage en millisecondes, empreinte mémoire réduite, idéal pour serverless et scale-to-zero. Compromis : build long, réflexion/proxies/JNI à déclarer explicitement (hints), pas de JIT adaptatif donc un débit de pointe parfois inférieur à HotSpot.
