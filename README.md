@@ -1,8 +1,8 @@
 # 🚀 Interview Questions & Answers — Fullstack, Cloud & DevOps
 
-Welcome! This repository contains **1150+ battle-tested interview questions and answers**, organized by topic, covering Java, Spring, Angular, React, Kafka, Docker, Kubernetes, cloud platforms, databases, security, testing, clean code, DevOps tooling, and more.
+Welcome! This repository contains **1450+ battle-tested interview questions and answers**, organized by topic, covering Java, Spring, Angular, React, Kafka, Docker, Kubernetes, cloud platforms, databases, security, testing, clean code, DevOps tooling, and more.
 
-![Questions](https://img.shields.io/badge/Questions-1150%2B-blue) ![License](https://img.shields.io/badge/License-MIT-yellow) ![Maintained](https://img.shields.io/badge/Maintained-yes-green)
+![Questions](https://img.shields.io/badge/Questions-1450%2B-blue) ![License](https://img.shields.io/badge/License-MIT-yellow) ![Maintained](https://img.shields.io/badge/Maintained-yes-green)
 
 ## 📚 Table of Contents & Question Modules
 
@@ -10,12 +10,12 @@ Welcome! This repository contains **1150+ battle-tested interview questions and 
 |---|---|---|---|
 | ▲ Next.js | 50 | Next.js | [Explore](./nextjs/README.md) |
 | ☁️ Cloud & AWS | 50 | AWS, AWS avancé, Cloud-ready, Cloud-ready Java, FinOps, Serverless | [Explore](./cloud-and-aws/README.md) |
-| ☕ Java & JVM | 50 | Java, Java 21, Multithreading, Optimisation Java, Troubleshooting Java, Troubleshooting Java/K8s | [Explore](./java-and-jvm/README.md) |
+| ☕ Java & JVM | 100 | Java, Java 21, Java 8, Multithreading, Optimisation Java, Troubleshooting Java, Troubleshooting Java/K8s | [Explore](./java-and-jvm/README.md) |
 | ☸️ Kubernetes & Helm | 50 | Helm, Kubernetes, Kubernetes troubleshooting, Troubleshooting Kubernetes | [Explore](./kubernetes-helm/README.md) |
 | ⚛️ React | 50 | React | [Explore](./react/README.md) |
 | ✅ Testing | 50 | Contract Testing, Mutation Testing, Tests Cypress, Tests Java | [Explore](./testing/README.md) |
 | 🅰️ Angular | 51 | Angular, Angular 21, Optimisation Angular | [Explore](./angular/README.md) |
-| 🌱 Spring Ecosystem | 50 | Cloud-ready Spring Boot, Spring, Spring Actuator, Spring Batch, Spring Boot, Spring Cloud, Spring Data, Spring Sécurité | [Explore](./spring-ecosystem/README.md) |
+| 🌱 Spring Ecosystem | 100 | Cloud-ready Spring Boot, Spring, Spring Actuator, Spring Batch, Spring Boot, Spring Cloud, Spring Data, Spring Sécurité | [Explore](./spring-ecosystem/README.md) |
 | 🎨 Design Patterns | 50 | Design Pattern | [Explore](./design-patterns/README.md) |
 | 🏗️ Infrastructure as Code | 50 | Ansible, Terraform | [Explore](./infrastructure-as-code/README.md) |
 | 🐳 Docker | 50 | Docker | [Explore](./docker/README.md) |
@@ -31,6 +31,10 @@ Welcome! This repository contains **1150+ battle-tested interview questions and 
 | 🤖 AI/LLM for Developers | 50 | AI-assisted coding, MCP, RAG / LLM | [Explore](./ai-llm-for-devs/README.md) |
 | 🧩 Microservices & Architecture Patterns | 50 | CQRS, Event Sourcing, GraphQL, gRPC, Microservices, WebSockets | [Explore](./microservices-architecture/README.md) |
 | 🧹 Clean Code & Clean Architecture | 50 | Clean Architecture, Clean Code | [Explore](./clean-code-architecture/README.md) |
+| 📐 System Design (exercices d'entretien) | 50 | Autres exercices, File de notifications, Méthode, Raccourcisseur d'URL, Système de réservation | [Explore](./system-design/README.md) |
+| 🐧 Linux, Réseau & Shell | 51 | DNS, HTTP, Linux, Réseau, Shell, TLS | [Explore](./linux-network-shell/README.md) |
+| ⚡ Performance & Profiling Backend | 50 | Application, async-profiler, Base de données, Cache, HikariCP, JFR, JMH, JVM, Méthode, Tests de charge | [Explore](./performance-profiling/README.md) |
+| 🪪 Authentification & Identité | 50 | Autorisation, Concepts, Keycloak, MFA, OAuth/OIDC, Passkeys/WebAuthn, SCIM, Sessions vs tokens, Sécurité | [Explore](./auth-identity/README.md) |
 
 ## 🗂️ Structure
 

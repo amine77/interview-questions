@@ -2,7 +2,7 @@
 
 > Java 8-21, Virtual Threads, GC, JIT, concurrency, memory leaks, thread dumps
 
-**50 questions**
+**100 questions**
 
 ---
 
@@ -255,3 +255,253 @@
 `🔴 Avancé` · Sujet : **Optimisation Java**
 
 **Réponse :** Native Image compile l'application en exécutable natif via une analyse statique à la compilation (closed-world). Avantages : démarrage en millisecondes, empreinte mémoire réduite, idéal pour serverless et scale-to-zero. Compromis : build long, réflexion/proxies/JNI à déclarer explicitement (hints), pas de JIT adaptatif donc un débit de pointe parfois inférieur à HotSpot.
+
+### 51. Qu'est-ce qu'une expression lambda et quelle est sa syntaxe ?
+`🟢 Débutant` · Sujet : **Java 8**
+
+**Réponse :** Une fonction anonyme concise implémentant une interface fonctionnelle : `(a, b) -> a + b`, `x -> x * 2`, `() -> System.out.println("ok")`. Le type des paramètres est inféré. Elle capture les variables locales à condition qu'elles soient effectivement finales. Elle remplace les classes anonymes verbeuses pour `Runnable`, `Comparator`, callbacks.
+
+### 52. Que sont les références de méthode (`::`) ?
+`🟢 Débutant` · Sujet : **Java 8**
+
+**Réponse :** Une notation abrégée pour une lambda qui ne fait qu'appeler une méthode : `String::length` (méthode d'instance via paramètre), `System.out::println` (méthode d'instance d'un objet), `Integer::parseInt` (statique), `ArrayList::new` (constructeur). Elles améliorent la lisibilité quand la lambda n'apporte pas de logique.
+
+### 53. Quelles sont les principales interfaces fonctionnelles de `java.util.function` ?
+`🟢 Débutant` · Sujet : **Java 8**
+
+**Réponse :** `Function<T,R>` (transforme), `Predicate<T>` (teste, retourne boolean), `Consumer<T>` (consomme sans retour), `Supplier<T>` (fournit), `UnaryOperator<T>`/`BinaryOperator<T>`, et les variantes `Bi*` (deux arguments) et primitives (`IntFunction`, `ToLongFunction`) qui évitent le boxing.
+
+### 54. Qu'est-ce que l'API Stream et quelle est la différence avec une collection ?
+`🟢 Débutant` · Sujet : **Java 8**
+
+**Réponse :** Un pipeline de traitement déclaratif sur une séquence d'éléments (filtrage, transformation, agrégation). Contrairement à une collection, un stream ne stocke pas les données, est consommé une seule fois, évalué paresseusement (les opérations intermédiaires ne s'exécutent qu'à l'opération terminale) et peut être infini.
+
+### 55. Différence entre opérations intermédiaires et terminales d'un Stream ?
+`🟢 Débutant` · Sujet : **Java 8**
+
+**Réponse :** Intermédiaires (`filter`, `map`, `sorted`, `distinct`, `limit`, `flatMap`) : retournent un nouveau stream et sont paresseuses. Terminales (`collect`, `forEach`, `reduce`, `count`, `findFirst`, `anyMatch`) : déclenchent l'exécution et produisent un résultat ou un effet. Sans opération terminale, rien ne s'exécute.
+
+### 56. Différence entre `map` et `flatMap` ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** `map` applique une fonction à chaque élément (1 → 1). `flatMap` applique une fonction retournant un stream et aplatit le résultat (1 → 0..n) : utile pour une liste de listes, ou pour chaîner des `Optional`. `Stream<List<String>>` → `flatMap(List::stream)` → `Stream<String>`.
+
+### 57. Comment fonctionne `Collectors` et quels collecteurs faut-il connaître ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** `toList()`/`toSet()`/`toMap(k, v, merge)`, `joining(", ")`, `groupingBy(classifier, downstream)` (avec `counting()`, `summingInt`, `mapping`), `partitioningBy(predicate)`, `averagingDouble`, `teeing` (Java 12) pour combiner deux collecteurs. `Stream.toList()` (Java 16) retourne une liste non modifiable.
+
+### 58. Qu'est-ce que `reduce` et quelle est la différence avec `collect` ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** `reduce` combine les éléments en une seule valeur immuable via une opération associative (`reduce(0, Integer::sum)`), créant une nouvelle valeur à chaque étape. `collect` accumule dans un conteneur mutable (liste, map, StringBuilder), plus efficace pour construire des structures. Pour les sommes, préférer `mapToInt(...).sum()`.
+
+### 59. Pourquoi les variables capturées par une lambda doivent-elles être effectivement finales ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** La lambda peut s'exécuter plus tard ou dans un autre thread : Java copie la valeur au moment de la capture, comme pour les classes anonymes. Autoriser la modification créerait des incohérences entre la copie et la variable locale. Contournement (à éviter) : un tableau d'un élément ou `AtomicInteger` ; préférer les collecteurs.
+
+### 60. Qu'est-ce que `Optional` et quelles sont ses bonnes et mauvaises pratiques ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** Un conteneur signalant explicitement l'absence de valeur pour éviter les `NullPointerException`. Bien : type de retour, `map`/`flatMap`/`filter`/`orElseGet`/`orElseThrow`/`ifPresentOrElse`. Mal : `isPresent()` + `get()`, `Optional` en champ, en paramètre, en collection, ou `orElse(calculCoûteux())` (évalué même si présent).
+
+### 61. Que sont les méthodes `default` et `static` dans les interfaces ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** Depuis Java 8, une interface peut fournir une implémentation par défaut (`default`) pour faire évoluer une API sans casser les implémentations existantes (`Collection.stream()`, `List.sort`), et des méthodes statiques utilitaires. Si deux interfaces fournissent la même méthode par défaut, la classe doit la redéfinir (`A.super.m()`). Java 9 ajoute les méthodes privées d'interface.
+
+### 62. Qu'est-ce que l'API `java.time` et pourquoi remplace-t-elle `Date`/`Calendar` ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** Une API immuable et thread-safe inspirée de Joda-Time : `LocalDate`, `LocalDateTime` (sans fuseau), `ZonedDateTime`, `Instant` (point sur la ligne du temps), `Duration`/`Period`, `DateTimeFormatter`. `Date` était mutable, mal nommée, avec des mois indexés à 0 et une gestion de fuseaux confuse. Stocker en `Instant`/UTC, afficher en `ZonedDateTime`.
+
+### 63. Comment fonctionne `Comparator` avec les lambdas ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** `Comparator.comparing(Person::getName)`, chaînage avec `.thenComparing(Person::getAge)`, inversion `.reversed()`, gestion des nulls `Comparator.nullsFirst(...)`, et versions primitives `comparingInt`. Ces combinateurs remplacent les classes anonymes et clarifient l'ordre de tri multi-critères.
+
+### 64. Qu'est-ce que `CompletableFuture` et ses principales méthodes de composition ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** Un `Future` composable : `supplyAsync` (lancer), `thenApply` (transformer), `thenCompose` (chaîner une autre future, équivalent flatMap), `thenCombine` (joindre deux), `allOf`/`anyOf`, `exceptionally`/`handle` (erreurs), `orTimeout` (Java 9). Par défaut il utilise le `ForkJoinPool.commonPool()` ; fournir son propre executor pour les tâches bloquantes.
+
+### 65. Quels sont les pièges des streams parallèles ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** Ils utilisent le `commonPool` partagé (une tâche bloquante le paralyse), le coût de découpage dépasse le gain pour les petites collections ou les sources mal découpables (`LinkedList`, `iterate`), les opérations avec état (`sorted`, `distinct`, `limit`) sont coûteuses, et les effets de bord non thread-safe (`ArrayList` partagée dans `forEach`) corrompent les données. Mesurer avant d'utiliser.
+
+### 66. Différence entre `Iterator` et Stream pour parcourir une collection ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** L'itération externe (`for`, `Iterator`) contrôle explicitement le parcours, permet de modifier la collection via `iterator.remove()` et de sortir avec `break`. Le stream est une itération interne déclarative, composable, potentiellement parallèle, mais ne permet pas de modifier la source ni de « break » (sauf `takeWhile` Java 9, `findFirst`).
+
+### 67. Qu'est-ce que le `Spliterator` ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** L'abstraction sous-jacente aux streams pour parcourir et découper (`trySplit`) une source, permettant le parallélisme. Ses caractéristiques (`SIZED`, `ORDERED`, `DISTINCT`, `SORTED`) permettent des optimisations (par exemple `count()` sans parcourir si `SIZED`). On l'implémente pour exposer une source personnalisée en stream efficace.
+
+### 68. Comment gérer les exceptions checked dans les lambdas ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** Les interfaces fonctionnelles standard ne déclarent pas d'exceptions checked. Solutions : envelopper dans une exception non checked dans la lambda, écrire une interface fonctionnelle déclarant `throws`, ou un utilitaire `unchecked(ThrowingFunction)` (Vavr, Lombok `@SneakyThrows`). Éviter d'avaler silencieusement les exceptions.
+
+### 69. Qu'est-ce que `Stream.iterate`, `generate` et les streams infinis ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** `Stream.iterate(seed, f)` et `Stream.generate(supplier)` créent des streams infinis, à borner par `limit`, `takeWhile` (Java 9) ou la variante `iterate(seed, hasNext, next)`. Utile pour les suites, les tentatives de retry, ou la génération de données de test.
+
+### 70. Qu'est-ce que le pattern « Collectors.groupingBy » multi-niveaux et le downstream ?
+`🟠 Intermédiaire` · Sujet : **Java 8**
+
+**Réponse :** `groupingBy(Order::getCountry, groupingBy(Order::getYear, summingDouble(Order::getAmount)))` produit une `Map<String, Map<Integer, Double>>`. Le collecteur aval (downstream) transforme chaque groupe : `counting`, `mapping(f, toList())`, `maxBy`, `collectingAndThen(toList(), List::size)`. Le type de map se contrôle avec `TreeMap::new` en second argument.
+
+### 71. Différence entre concurrence et parallélisme ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** La concurrence est la gestion de plusieurs tâches dont les exécutions se chevauchent dans le temps (même sur un seul cœur, par entrelacement). Le parallélisme est l'exécution simultanée réelle sur plusieurs cœurs. Le multithreading Java permet les deux ; les virtual threads visent la concurrence massive d'I/O, les parallel streams et Fork/Join le parallélisme CPU.
+
+### 72. Comment créer et démarrer un thread, et pourquoi `start()` et non `run()` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `new Thread(runnable).start()` ou `Thread.ofVirtual().start(runnable)` (Java 21). `start()` demande à la JVM de créer un thread natif et d'y exécuter `run()` ; appeler `run()` directement exécute le code dans le thread courant, sans concurrence. Un thread ne peut être démarré qu'une fois.
+
+### 73. Quels sont les états d'un thread Java ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `NEW` (créé, non démarré), `RUNNABLE` (exécutable, en cours ou en attente de CPU), `BLOCKED` (attend un moniteur `synchronized`), `WAITING` (`wait()`, `join()`, `LockSupport.park()` sans timeout), `TIMED_WAITING` (`sleep`, `wait(timeout)`), `TERMINATED`. Un thread dump affiche ces états, précieux pour diagnostiquer contention et blocages.
+
+### 74. Comment fonctionnent `wait()`, `notify()` et `notifyAll()` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Méthodes de `Object` utilisables uniquement dans un bloc `synchronized` sur le même moniteur. `wait()` libère le moniteur et suspend le thread jusqu'à `notify`/`notifyAll` (toujours dans une boucle vérifiant la condition, à cause des réveils intempestifs). `notifyAll` est plus sûr que `notify`. Aujourd'hui, préférer `Condition`, `BlockingQueue` ou `CountDownLatch`.
+
+### 75. Comment interrompre un thread proprement ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `thread.interrupt()` positionne un flag : les méthodes bloquantes (`sleep`, `wait`, `join`, `BlockingQueue.take`) lèvent `InterruptedException` ; le code CPU doit vérifier `Thread.currentThread().isInterrupted()`. Quand on attrape `InterruptedException` sans pouvoir la propager, restaurer le flag avec `Thread.currentThread().interrupt()`. Jamais `Thread.stop()`.
+
+### 76. Qu'est-ce qu'un `ThreadPoolExecutor` et quels sont ses paramètres clés ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `corePoolSize` (threads permanents), `maximumPoolSize` (plafond), `keepAliveTime`, la file de tâches (`LinkedBlockingQueue` illimitée : max n'est jamais atteint ; `SynchronousQueue` ; `ArrayBlockingQueue` bornée), la `ThreadFactory` (nommage) et la `RejectedExecutionHandler` (`AbortPolicy`, `CallerRunsPolicy`). Les `Executors.newFixedThreadPool` masquent ces choix ; en production, construire explicitement.
+
+### 77. Comment dimensionner un pool de threads ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Tâches CPU : nombre de cœurs (+1). Tâches I/O bloquantes : cœurs × (1 + temps d'attente / temps de calcul), souvent plusieurs dizaines. Séparer les pools par type de tâche pour isoler les pannes (bulkhead), borner la file, monitorer taille active et file. Avec Java 21, les virtual threads suppriment la question pour les tâches I/O.
+
+### 78. Différence entre `Runnable` et `Callable` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `Runnable.run()` ne retourne rien et ne peut lever d'exception checked. `Callable<V>.call()` retourne une valeur et peut lever `Exception`. `ExecutorService.submit(Callable)` retourne un `Future<V>` pour récupérer le résultat ou l'exception (`ExecutionException`). Une exception dans un `Runnable` soumis via `submit` est silencieusement stockée dans le `Future` si `get()` n'est jamais appelé.
+
+### 79. Que sont `CountDownLatch`, `CyclicBarrier` et `Semaphore` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `CountDownLatch` : attendre qu'un compte atteigne zéro (N tâches terminées), à usage unique. `CyclicBarrier` : N threads s'attendent mutuellement à un point de rendez-vous, réutilisable, avec action de barrière. `Semaphore` : limiter l'accès concurrent à N permis (pool de connexions, rate limiting). `Phaser` généralise les deux premiers.
+
+### 80. Qu'est-ce que `ReadWriteLock` et `StampedLock` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `ReentrantReadWriteLock` autorise plusieurs lecteurs simultanés ou un seul écrivain, utile quand les lectures dominent. `StampedLock` (Java 8) ajoute le verrouillage optimiste : `tryOptimisticRead()` lit sans verrou puis `validate(stamp)` vérifie qu'aucune écriture n'est intervenue ; non réentrant et sans `Condition`, à réserver aux cas mesurés.
+
+### 81. Que sont les classes atomiques (`AtomicInteger`, `AtomicReference`, `LongAdder`) ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Des opérations lock-free basées sur CAS (compare-and-swap) : `incrementAndGet`, `compareAndSet`, `updateAndGet(f)`. `LongAdder`/`LongAccumulator` répartissent les mises à jour sur plusieurs cellules pour réduire la contention des compteurs très sollicités (métriques), au prix d'une lecture plus coûteuse. `AtomicReference` permet des mises à jour atomiques d'objets immuables.
+
+### 82. Qu'est-ce que le CAS (compare-and-swap) et l'algorithme lock-free ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Une instruction atomique du processeur : « si la valeur vaut encore X, remplace-la par Y », renvoyant succès ou échec. Les structures lock-free bouclent jusqu'au succès au lieu de bloquer, évitant les deadlocks et les changements de contexte, mais peuvent souffrir de contention (spinning) et du problème ABA (résolu par `AtomicStampedReference`).
+
+### 83. Quelles collections concurrentes connaître et quand les utiliser ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `ConcurrentHashMap` (verrouillage par segment, `compute`, `merge`), `CopyOnWriteArrayList` (lectures fréquentes, écritures rares : listeners), `ConcurrentLinkedQueue` (non bloquante), `BlockingQueue` (`ArrayBlockingQueue`, `LinkedBlockingQueue`, `PriorityBlockingQueue`) pour producteur-consommateur, `ConcurrentSkipListMap` (triée). Éviter `Vector`/`Hashtable` et les wrappers `synchronized*`.
+
+### 84. Qu'est-ce qu'un livelock et une famine (starvation) ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Livelock : des threads répondent sans cesse aux actions des autres sans progresser (deux threads qui se cèdent mutuellement une ressource). Famine : un thread n'obtient jamais le CPU ou un verrou parce que d'autres sont prioritaires ou monopolisent (verrous non équitables, `synchronized` sous forte contention). Remèdes : backoff aléatoire, verrous équitables (`new ReentrantLock(true)`), limiter la durée des sections critiques.
+
+### 85. Comment rendre une classe thread-safe ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Par ordre de préférence : immuabilité (champs `final`, pas de setter, copies défensives), confinement (l'objet n'est visible que d'un thread), synchronisation interne cohérente (un seul verrou protégeant tous les invariants), ou délégation à des composants thread-safe (`ConcurrentHashMap`, atomiques). Documenter la politique de synchronisation ; un mélange de champs `volatile` et de blocs `synchronized` partiels est le piège classique.
+
+### 86. Qu'est-ce que le double-checked locking et pourquoi nécessite-t-il `volatile` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Un singleton paresseux qui vérifie `instance == null` avant et après avoir pris le verrou pour éviter de synchroniser à chaque accès. Sans `volatile`, la réorganisation des instructions peut publier une référence vers un objet non encore construit. Alternatives plus simples : initialisation statique, holder idiom (classe interne), ou `enum`.
+
+### 87. Qu'est-ce que `ScheduledExecutorService` et quelle différence entre `scheduleAtFixedRate` et `scheduleWithFixedDelay` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Un executor planifiant des tâches différées ou périodiques. `scheduleAtFixedRate` déclenche à intervalle fixe depuis le début de chaque exécution (rattrape le retard, exécutions consécutives si la tâche est lente) ; `scheduleWithFixedDelay` attend le délai après la fin de chaque exécution. Une exception non capturée arrête silencieusement la planification : toujours envelopper dans un try/catch.
+
+### 88. Comment utiliser les virtual threads avec `ExecutorService` et quels changements dans le code existant ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** `Executors.newVirtualThreadPerTaskExecutor()` crée un thread virtuel par tâche, sans pool. Le code bloquant classique (JDBC, HTTP) fonctionne tel quel. Précautions : éviter `synchronized` autour d'I/O longs (pinning, corrigé en Java 24), limiter les ressources avec des `Semaphore` plutôt que par la taille du pool, et ne pas mettre en cache d'objets coûteux dans des `ThreadLocal` (préférer `ScopedValue`).
+
+### 89. Qu'est-ce que `ScopedValue` ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Une alternative à `ThreadLocal` (Java 21 preview, finalisée en Java 25) : une valeur immuable liée à une portée d'exécution (`ScopedValue.where(USER, u).run(() -> ...)`), automatiquement visible dans les threads enfants de la concurrence structurée, sans coût de copie ni risque de fuite avec les virtual threads. Idéale pour le contexte de requête (utilisateur, trace id).
+
+### 90. Comment tester du code concurrent ?
+`🟠 Intermédiaire` · Sujet : **Multithreading**
+
+**Réponse :** Difficile car non déterministe : utiliser des `CountDownLatch` pour forcer des entrelacements, répéter les tests, `ExecutorService` avec beaucoup de tâches pour provoquer la contention, des outils spécialisés (jcstress pour le JMM, ThreadSanitizer via Lincheck), et privilégier une conception qui isole la logique concurrente (petits composants testables) du métier.
+
+### 91. Comment mesurer correctement les performances Java (JMH) ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** Java Microbenchmark Harness gère les pièges des benchmarks JVM : warm-up (JIT), élimination de code mort (`Blackhole`), constant folding, plusieurs forks pour l'isolation, modes (throughput, temps moyen, percentiles). Un `System.nanoTime()` autour d'une boucle donne des résultats faux. Benchmarker le cas réel avec des données réalistes, et interpréter les erreurs statistiques.
+
+### 92. Quels sont les principaux collecteurs de déchets et comment choisir ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** Serial (petits heaps, conteneurs mono-cœur), Parallel (débit maximal, pauses acceptables : batch), G1 (défaut, équilibre débit/latence, régions), ZGC (pauses sub-milliseconde, gros heaps, générationnel depuis Java 21), Shenandoah (similaire, Red Hat). Choisir selon l'objectif latence vs débit, la taille du heap et le CPU disponible, puis valider avec les logs GC (`-Xlog:gc*`).
+
+### 93. Comment lire et interpréter les logs GC ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** Activer `-Xlog:gc*:file=gc.log`. Observer la fréquence et la durée des pauses (young vs full), l'occupation avant/après collecte (une occupation qui remonte toujours plus haut après full GC indique une fuite), le temps total passé en GC (> 5-10 % est un problème), et les promotions prématurées. Outils : GCViewer, GCEasy, JFR.
+
+### 94. Quels paramètres JVM de mémoire faut-il connaître ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** `-Xms`/`-Xmx` (heap min/max), `-XX:MaxRAMPercentage` (préféré en conteneur), `-XX:MaxMetaspaceSize`, `-Xss` (taille de pile par thread), `-XX:+HeapDumpOnOutOfMemoryError`, `-XX:MaxDirectMemorySize`. La mémoire totale d'un processus = heap + metaspace + piles + code cache + mémoire native (buffers, GC) : prévoir 25-50 % au-delà de `-Xmx` dans les limites Kubernetes.
+
+### 95. Qu'est-ce que Java Flight Recorder (JFR) et JDK Mission Control ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** JFR est un profileur intégré à la JVM, à très faible surcoût (< 2 %), enregistrant événements GC, allocations, verrous, I/O, exceptions, échantillonnage CPU, activable en production (`-XX:StartFlightRecording` ou `jcmd JFR.start`). JMC visualise les enregistrements. C'est le premier outil à utiliser pour un problème de performance en production.
+
+### 96. Comment optimiser les allocations et réduire la pression sur le GC ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** Éviter les objets temporaires dans les boucles chaudes (boxing, `String` concaténées, streams sur de petites collections), réutiliser les buffers, préférer les primitives et tableaux, dimensionner les collections (`new ArrayList<>(n)`), utiliser `StringBuilder`. Mais mesurer d'abord : l'escape analysis du JIT élimine beaucoup d'allocations, et la lisibilité prime hors des chemins critiques.
+
+### 97. Quel est le coût réel des exceptions et comment l'éviter ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** Créer une exception capture la pile (`fillInStackTrace`), coûteux (microsecondes) surtout avec des piles profondes ; les lever pour le contrôle de flux normal (parsing, validation en masse) dégrade les performances. Alternatives : retours `Optional`/résultats, validation préalable, ou exceptions sans trace (`super(msg, null, false, false)`) pour les cas fréquents et attendus.
+
+### 98. Comment optimiser les accès aux bases de données depuis Java ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** Éviter le N+1 (fetch join, `@EntityGraph`, batch fetching), paginer, sélectionner uniquement les colonnes utiles (projections, DTO), batcher les insertions (`hibernate.jdbc.batch_size`, `rewriteBatchedStatements`), utiliser des requêtes préparées, dimensionner le pool HikariCP (formule cœurs × 2 + disques), et surveiller les requêtes lentes avec les logs de la base et les métriques du pool.
+
+### 99. Qu'est-ce que Class Data Sharing (CDS/AppCDS) et comment accélérer le démarrage ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** CDS archive les classes chargées dans un fichier mappé en mémoire partagé entre JVM, réduisant le temps de démarrage et la mémoire. AppCDS l'étend aux classes applicatives (`-XX:ArchiveClassesAtExit`, Spring Boot 3.3+ le supporte via des images Docker en couches). Autres leviers : `-XX:TieredStopAtLevel=1` en développement, initialisation paresseuse, Project Leyden, GraalVM Native Image.
+
+### 100. Comment profiler une application Java en production sans la perturber ?
+`🟠 Intermédiaire` · Sujet : **Optimisation Java**
+
+**Réponse :** JFR en continu avec enregistrement circulaire, async-profiler (échantillonnage précis, sans biais de safepoint, flame graphs CPU/allocations/verrous), `jcmd` pour thread dumps et diagnostics ponctuels, métriques Micrometer exposées à Prometheus (GC, pools, latences). Éviter les profileurs par instrumentation en production. Corréler les flame graphs avec les traces distribuées pour cibler le bon service.
