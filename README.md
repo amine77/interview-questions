@@ -1,21 +1,21 @@
 # 🚀 Interview Questions & Answers — Fullstack, Cloud & DevOps
 
-Welcome! This repository contains **1800+ battle-tested interview questions and answers**, organized by topic, covering Java, Spring, Angular, React, Kafka, Docker, Kubernetes, cloud platforms, databases, security, testing, clean code, DevOps tooling, and more.
+Welcome! This repository contains **2150+ battle-tested interview questions and answers**, organized by topic, covering Java, Spring, Angular, React, Kafka, Docker, Kubernetes, cloud platforms, databases, security, testing, clean code, DevOps tooling, and more.
 
-![Questions](https://img.shields.io/badge/Questions-1800%2B-blue) ![License](https://img.shields.io/badge/License-MIT-yellow) ![Maintained](https://img.shields.io/badge/Maintained-yes-green)
+![Questions](https://img.shields.io/badge/Questions-2150%2B-blue) ![License](https://img.shields.io/badge/License-MIT-yellow) ![Maintained](https://img.shields.io/badge/Maintained-yes-green)
 
 ## 📚 Table of Contents & Question Modules
 
 | Module / Topic | Questions | Topics Covered | Link |
 |---|---|---|---|
 | ▲ Next.js | 50 | Next.js | [Explore](./nextjs/README.md) |
-| ☁️ Cloud & AWS | 50 | AWS, AWS avancé, Cloud-ready, Cloud-ready Java, FinOps, Serverless | [Explore](./cloud-and-aws/README.md) |
-| ☕ Java & JVM | 151 | Java, Java 21, Java 8, Multithreading, Optimisation Java, Troubleshooting Java, Troubleshooting Java/K8s | [Explore](./java-and-jvm/README.md) |
+| ☁️ Cloud & AWS | 150 | Architecture, AWS, AWS avancé, Bases, CI/CD, Cloud-ready, Cloud-ready Java, Compute, Coûts, Données, Exploitation, FinOps, IaC, IAM, Messagerie, Migration, Observabilité, Réseau, Serverless, Stockage, Sécurité | [Explore](./cloud-and-aws/README.md) |
+| ☕ Java & JVM | 253 | Build, Collections, Concurrence, Dates, Design, Exceptions, Fonctionnel, Generics, I/O, Java, Java 21, Java 8, JVM, Multithreading, OOP, Optimisation Java, Réseau, Sécurité, Tests, Texte, Troubleshooting Java, Troubleshooting Java/K8s, Écosystème | [Explore](./java-and-jvm/README.md) |
 | ☸️ Kubernetes & Helm | 100 | Helm, Kubernetes, Kubernetes troubleshooting, Troubleshooting Kubernetes | [Explore](./kubernetes-helm/README.md) |
 | ⚛️ React | 50 | React | [Explore](./react/README.md) |
 | ✅ Testing | 50 | Contract Testing, Mutation Testing, Tests Cypress, Tests Java | [Explore](./testing/README.md) |
-| 🅰️ Angular | 101 | Angular, Angular 21, Optimisation Angular | [Explore](./angular/README.md) |
-| 🌱 Spring Ecosystem | 200 | Cloud-ready Spring Boot, Spring, Spring Actuator, Spring Batch, Spring Boot, Spring Cloud, Spring Data, Spring MVC, Spring Sécurité, WebFlux | [Explore](./spring-ecosystem/README.md) |
+| 🅰️ Angular | 151 | Accessibilité, Angular, Angular 21, Animations, Architecture, Migration, Optimisation Angular, Outils, Patterns, Performance, RxJS, Signals, Sécurité, Tests | [Explore](./angular/README.md) |
+| 🌱 Spring Ecosystem | 300 | Cloud-ready Spring Boot, Spring, Spring Actuator, Spring Batch, Spring Boot, Spring Cloud, Spring Core, Spring Data, Spring MVC, Spring Sécurité, WebFlux | [Explore](./spring-ecosystem/README.md) |
 | 🎨 Design Patterns | 50 | Design Pattern | [Explore](./design-patterns/README.md) |
 | 🏗️ Infrastructure as Code | 50 | Ansible, Terraform | [Explore](./infrastructure-as-code/README.md) |
 | 🐳 Docker | 50 | Docker | [Explore](./docker/README.md) |

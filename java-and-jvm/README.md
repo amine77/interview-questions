@@ -2,7 +2,7 @@
 
 > Java 8-21, Virtual Threads, GC, JIT, concurrency, memory leaks, thread dumps
 
-**151 questions**
+**253 questions**
 
 ---
 
@@ -760,3 +760,513 @@
 `🟠 Intermédiaire` · Sujet : **Java**
 
 **Réponse :** Minimiser la surface (packages internes non exportés, `sealed`), types immuables, `Optional` en retour uniquement, éviter les booléens en paramètres (enums), exceptions documentées, pas de dépendances lourdes transitives, `@Deprecated` avec chemin de migration, Javadoc avec exemples, compatibilité vérifiée par japicmp, tests de non-régression et SemVer. Ne pas exposer de types de bibliothèques tierces dans les signatures.
+
+### 152. Comment fonctionne `HashMap` en interne (buckets, hash, treeification, redimensionnement) ?
+`🟢 Débutant` · Sujet : **Collections**
+
+**Réponse :** Un tableau de buckets indexé par `hash(key) & (n-1)` ; les collisions forment une liste chaînée, convertie en arbre rouge-noir au-delà de 8 entrées (Java 8) pour garantir O(log n) en cas de mauvais `hashCode` ; redimensionnement ×2 quand le nombre d'entrées dépasse `capacité × loadFactor (0,75)`, avec redistribution. D'où l'importance d'un `hashCode` bien réparti et d'une capacité initiale adaptée.
+
+### 153. Différence entre `ArrayList`, `LinkedList`, `ArrayDeque` et quand utiliser chacun ?
+`🟢 Débutant` · Sujet : **Collections**
+
+**Réponse :** `ArrayList` : accès indexé O(1), ajout en fin amorti O(1), insertion au milieu O(n), cache-friendly : le choix par défaut. `LinkedList` : insertions/suppressions O(1) via itérateur mais surcoût mémoire et accès O(n) : quasiment jamais le bon choix. `ArrayDeque` : pile et file à double extrémité très rapide, préférable à `Stack` et `LinkedList` pour LIFO/FIFO.
+
+### 154. Comment fonctionnent `TreeMap`/`TreeSet` et les vues `NavigableMap` ?
+`🟢 Débutant` · Sujet : **Collections**
+
+**Réponse :** Arbre rouge-noir trié par ordre naturel ou `Comparator` (O(log n)), avec des vues de plage (`subMap`, `headMap`, `tailMap`), navigation (`floorKey`, `ceilingKey`, `firstEntry`, `pollFirst`), et itération ordonnée. Utile pour les intervalles, les planifications, les top-N évolutifs. Le comparateur doit être cohérent avec `equals` sinon des éléments « égaux » sont fusionnés.
+
+### 155. Qu'est-ce que `PriorityQueue` et comment implémenter un top-K ou un scheduler simple ?
+`🟢 Débutant` · Sujet : **Collections**
+
+**Réponse :** Un tas binaire (min-heap par défaut) avec `offer`/`poll` en O(log n) et `peek` en O(1), sans ordre d'itération garanti. Top-K : garder une `PriorityQueue` de taille K (min-heap) et rejeter le minimum quand on dépasse. Scheduler : file ordonnée par échéance ; `DelayQueue`/`ScheduledExecutorService` pour la version concurrente.
+
+### 156. Différence entre `Iterable`, `Iterator`, `ListIterator` et `Spliterator`, et comment rendre une classe itérable ?
+`🟢 Débutant` · Sujet : **Collections**
+
+**Réponse :** `Iterable<T>` expose `iterator()` (utilisable dans `for-each`, `forEach`, `spliterator()` par défaut) ; `Iterator` parcourt (`hasNext`, `next`, `remove` optionnel) ; `ListIterator` permet le parcours bidirectionnel et la modification ; `Spliterator` découpe pour les streams parallèles. Implémenter `Iterable` avec un itérateur paresseux évite de matérialiser une collection (pagination, génération).
+
+### 157. Comment fonctionnent les collections synchronisées, concurrentes et « weakly consistent » ?
+`🟠 Intermédiaire` · Sujet : **Collections**
+
+**Réponse :** `Collections.synchronizedX` verrouille chaque opération (itération à synchroniser manuellement, `ConcurrentModificationException` possible). Les collections `java.util.concurrent` (`ConcurrentHashMap`, `CopyOnWriteArrayList`, `ConcurrentLinkedQueue`) offrent des itérateurs weakly consistent : pas d'exception, reflètent un état approximatif. `ConcurrentHashMap.size()` et les vues sont des estimations sous forte concurrence.
+
+### 158. Comment fonctionnent `Arrays.asList`, `List.of`, `Collections.emptyList` et leurs pièges ?
+`🟠 Intermédiaire` · Sujet : **Collections**
+
+**Réponse :** `Arrays.asList` retourne une vue de taille fixe sur le tableau (`set` OK, `add` interdit, modifications reflétées dans le tableau, un `int[]` donne une liste d'un seul élément). `List.of` : immuable, refuse `null`. `Collections.emptyList()` : singleton immuable. `new ArrayList<>(Arrays.asList(...))` pour une copie modifiable. Connaître ces sémantiques évite les `UnsupportedOperationException` en production.
+
+### 159. Comment choisir la capacité initiale et éviter les redimensionnements coûteux ?
+`🟠 Intermédiaire` · Sujet : **Collections**
+
+**Réponse :** `new ArrayList<>(n)` et `HashMap.newHashMap(n)` (Java 19, calcule la capacité pour n entrées sans rehash ; sinon `n / 0.75 + 1`), `StringBuilder(n)`. Utile pour les collections construites en boucle à taille connue ; les collecteurs `toList()`/`toMap` gèrent leur croissance. Ne pas surdimensionner par défaut : mémoire gaspillée sur des millions de petites collections.
+
+### 160. Quelles bibliothèques de collections tierces valent la peine (Guava, Eclipse Collections, Vavr) ?
+`🟠 Intermédiaire` · Sujet : **Collections**
+
+**Réponse :** Guava : `ImmutableList/Map`, `Multimap`, `Table`, `BiMap`, `Cache` (préférer Caffeine), utilitaires. Eclipse Collections : collections primitives (`IntList`, `LongIntMap`) très efficaces en mémoire, API riche. Vavr : collections persistantes (immuables avec partage structurel) et types fonctionnels (`Option`, `Try`, `Either`). À évaluer contre les APIs standard modernes (records, `List.of`, streams) avant d'ajouter une dépendance.
+
+### 161. Comment implémenter un cache LRU/LFU en Java pur et pourquoi préférer Caffeine ?
+`🟠 Intermédiaire` · Sujet : **Collections**
+
+**Réponse :** LRU : `LinkedHashMap(capacity, 0.75f, true)` avec `removeEldestEntry` (accès-ordonné) ; thread-safe via synchronisation externe. LFU exige une structure plus complexe (compteurs + buckets). Caffeine offre W-TinyLFU (meilleur taux de hit), concurrence lock-free, expiration, poids, refresh asynchrone, statistiques et intégration Spring Cache : réimplémenter n'a de sens qu'en exercice d'entretien.
+
+### 162. Comment écrire une méthode générique avec bornes multiples et jokers, et quelles limites ?
+`🟠 Intermédiaire` · Sujet : **Generics**
+
+**Réponse :** `<T extends Comparable<? super T> & Serializable> T max(Collection<? extends T> c)` : bornes multiples (une classe max, en premier), joker `? super T` pour accepter les comparateurs de supertypes. Limites : pas de bornes inférieures sur les paramètres de type (`T super X` interdit), pas de génériques primitifs (boxing, ou spécialisations `IntStream`), pas d'`instanceof` paramétré, tableaux génériques impossibles (`(T[]) new Object[n]` avec avertissement).
+
+### 163. Qu'est-ce qu'un type récursif (`Enum<E extends Enum<E>>`, `Comparable<T>`) et le pattern « self-type » ?
+`🟠 Intermédiaire` · Sujet : **Generics**
+
+**Réponse :** `class Builder<B extends Builder<B>>` permet de retourner `B` (le sous-type concret) dans les méthodes chaînables d'une hiérarchie de builders (CRTP). `Enum<E extends Enum<E>>` garantit que `compareTo` ne compare que des constantes du même enum. Puissant mais verbeux ; les records et les builders générés (Lombok, Immutables) le rendent rarement nécessaire.
+
+### 164. Comment fonctionne l'inférence de type (diamant, lambdas, `var`) et ses limites ?
+`🟠 Intermédiaire` · Sujet : **Generics**
+
+**Réponse :** Le compilateur infère les arguments de type depuis le contexte cible (`List<String> l = new ArrayList<>()`, `List.of()`, lambdas typées par l'interface attendue). Limites : classes anonymes avec diamant (Java 9+ OK), chaînes d'appels où le type cible est perdu (`Collections.emptyList().add(...)`), surcharges ambiguës avec lambdas (`submit(Runnable)` vs `submit(Callable)`), et `var` interdit sans initialiseur ou avec `null`/lambda.
+
+### 165. Comment capturer un type générique à l'exécution (`TypeReference`, `ParameterizedType`, super type token) ?
+`🟠 Intermédiaire` · Sujet : **Generics**
+
+**Réponse :** Les types génériques des superclasses/champs/méthodes restent dans les métadonnées de classe : `new TypeReference<List<User>>(){}` (Jackson) crée une sous-classe anonyme dont `getGenericSuperclass()` expose `ParameterizedType`. Alternatives : passer `Class<T>` en paramètre, ou `Class<T>[]` ; Spring `ResolvableType`. Nécessaire pour la désérialisation de collections typées.
+
+### 166. Qu'est-ce que le principe de substitution de Liskov et un exemple de violation en Java ?
+`🟠 Intermédiaire` · Sujet : **OOP**
+
+**Réponse :** Un sous-type doit pouvoir remplacer son supertype sans casser le programme (préconditions non renforcées, postconditions non affaiblies, invariants conservés). Violations classiques : `Square extends Rectangle` avec `setWidth` modifiant la hauteur, une sous-classe levant `UnsupportedOperationException` sur une méthode héritée (`Collections.unmodifiableList`), ou `equals` non symétrique entre classe et sous-classe (utiliser `getClass()` ou `sealed`).
+
+### 167. Comment concevoir une hiérarchie extensible et sûre : `sealed` vs `abstract`, `final` par défaut, `protected` ?
+`🟠 Intermédiaire` · Sujet : **OOP**
+
+**Réponse :** Déclarer les classes `final` par défaut (ou `sealed` avec les sous-types connus) sauf conception explicite pour l'extension ; documenter les méthodes redéfinissables (`protected`, non appelées depuis le constructeur), privilégier les interfaces avec méthodes `default` pour l'évolution, et la composition pour la réutilisation. `sealed` + records donne des sommes de types exhaustives ; `abstract` reste pour le code partagé (template method).
+
+### 168. Qu'est-ce que le pattern Template Method vs Strategy vs lambdas en Java moderne ?
+`🟠 Intermédiaire` · Sujet : **OOP**
+
+**Réponse :** Template Method : classe abstraite fixant l'algorithme et déléguant des étapes à des méthodes abstraites (héritage, rigide). Strategy : l'algorithme est injecté via une interface (composition, testable). En Java moderne, une `Function`/`BiFunction`/interface fonctionnelle passée en paramètre ou en `Map<Type, Strategy>` remplace la plupart des Template Methods, et les enums avec méthodes abstraites offrent des stratégies fermées.
+
+### 169. Comment gérer l'égalité et l'identité des entités et des value objects ?
+`🟠 Intermédiaire` · Sujet : **OOP**
+
+**Réponse :** Value objects (records) : égalité structurelle sur tous les champs, immuables, interchangeables. Entités : identité par identifiant (`equals` sur l'id une fois assigné, `hashCode` constant ou basé sur une clé métier stable pour rester valide dans les `HashSet` avant persistance). Ne jamais baser `equals` d'une entité sur des champs mutables ; et documenter le choix.
+
+### 170. Qu'est-ce que le pattern Null Object, `Optional` et comment éliminer les `null` d'une API ?
+`🟠 Intermédiaire` · Sujet : **OOP**
+
+**Réponse :** Retourner des collections vides plutôt que `null`, `Optional` pour un résultat absent, des Null Objects (implémentation neutre : `NoOpLogger`) pour éviter les vérifications, valeurs par défaut explicites, `Objects.requireNonNull` en préconditions, annotations de nullabilité (JSpecify `@Nullable`, NullAway/Error Prone pour vérifier), et records avec validation dans le constructeur compact. Le `null` reste acceptable en interne, jamais dans un contrat public sans annotation.
+
+### 171. Comment composer des fonctions et prédicats (`andThen`, `compose`, `Predicate.not`, currying) ?
+`🟠 Intermédiaire` · Sujet : **Fonctionnel**
+
+**Réponse :** `f.andThen(g)` (g après f), `f.compose(g)` (g avant f), `Predicate.and/or/negate` et `Predicate.not(String::isBlank)`, `Comparator.comparing().thenComparing()`, `UnaryOperator.identity()`. Currying par lambdas imbriquées (`Function<A, Function<B, C>>`) reste verbeux en Java ; les pipelines de fonctions clarifient les validations et transformations sans classes dédiées.
+
+### 172. Qu'est-ce que la mémoïsation et comment l'implémenter en Java ?
+`🟠 Intermédiaire` · Sujet : **Fonctionnel**
+
+**Réponse :** Mettre en cache les résultats d'une fonction pure par argument : `ConcurrentHashMap.computeIfAbsent(arg, f)` (attention : `computeIfAbsent` récursif sur la même map lève une exception depuis Java 9), ou Caffeine `LoadingCache` avec taille/expiration, ou `Suppliers.memoize` (Guava) pour une valeur unique paresseuse. Pour la récursion (Fibonacci, programmation dynamique), passer par une map externe ou une itération.
+
+### 173. Comment gérer les effets de bord et l'immuabilité dans un style fonctionnel en Java ?
+`🟠 Intermédiaire` · Sujet : **Fonctionnel**
+
+**Réponse :** Fonctions pures pour la logique (entrées → sorties, testables sans mock), effets (I/O, base) isolés aux frontières (« functional core, imperative shell »), données immuables (records, `List.copyOf`, `with`-ers), pas de mutation dans les streams (`forEach` avec état partagé), et retour de nouvelles valeurs plutôt que modification. Les `Result`/`Either` rendent les erreurs explicites sans exceptions pour le flux de contrôle.
+
+### 174. Que sont les Stream Gatherers (Java 24) et quels problèmes résolvent-ils ?
+`🟠 Intermédiaire` · Sujet : **Fonctionnel**
+
+**Réponse :** `Stream.gather(Gatherer)` ajoute des opérations intermédiaires personnalisées avec état, ce que `map`/`filter`/`flatMap` ne permettaient pas : fenêtres (`Gatherers.windowFixed(3)`, `windowSliding`), `fold`, `scan` (préfixes cumulés), `mapConcurrent` (parallélisme borné sur virtual threads, ordre conservé), et gatherers maison (`Gatherer.ofSequential(initializer, integrator, finisher)`). Ils évitent de casser le pipeline pour des besoins comme « regrouper par paquets ».
+
+### 175. Comment implémenter des opérations « batch par N » et « distinct par clé » sur des streams ?
+`🟠 Intermédiaire` · Sujet : **Fonctionnel**
+
+**Réponse :** Batch : `Gatherers.windowFixed(n)` (Java 24) ; avant : `IntStream.range(0, (size+n-1)/n).mapToObj(i -> list.subList(i*n, Math.min(size,(i+1)*n)))` sur une liste, ou un `Collector` personnalisé. Distinct par clé : `collect(toMap(keyFn, identity(), (a, b) -> a, LinkedHashMap::new)).values()` ou `filter` avec un `Set` concurrent (`ConcurrentHashMap.newKeySet()`) via `seen.add(key(x))` — acceptable si documenté, mais impur.
+
+### 176. Comment écrire un `Collector` personnalisé ?
+`🟠 Intermédiaire` · Sujet : **Fonctionnel**
+
+**Réponse :** `Collector.of(supplier, accumulator, combiner, finisher, characteristics)` : par exemple un collecteur vers une `ImmutableList` Guava, une statistique métier (min/max/moyenne pondérée), ou une `String` tronquée. Les `characteristics` (`CONCURRENT`, `UNORDERED`, `IDENTITY_FINISH`) optimisent le parallélisme. `Collectors.teeing` et `collectingAndThen` couvrent souvent le besoin sans collecteur maison.
+
+### 177. Comment concevoir une hiérarchie d'exceptions applicatives et une stratégie de gestion par couche ?
+`🟠 Intermédiaire` · Sujet : **Exceptions**
+
+**Réponse :** Une exception racine `AppException` (unchecked) avec code d'erreur et données structurées, des sous-types par catégorie (`NotFound`, `Conflict`, `ValidationFailed`, `ExternalServiceFailure`), les exceptions techniques (SQL, HTTP) traduites aux frontières (adaptateurs), la couche web les mappe en réponses (`ProblemDetail`), et un `catch-all` global pour l'inattendu (500 + log). Ne pas capturer là où on ne peut rien faire.
+
+### 178. Qu'est-ce que `try`/`finally` avec `return` et les exceptions masquées (suppressed) ?
+`🟠 Intermédiaire` · Sujet : **Exceptions**
+
+**Réponse :** Un `return` ou `throw` dans `finally` écrase le résultat ou l'exception du `try` (à proscrire). Try-with-resources gère correctement : l'exception principale est conservée et celles de `close()` deviennent des `suppressed` (`getSuppressed()`) ; un `finally` manuel qui lève perd l'exception d'origine. Toujours logger les `suppressed` ou utiliser try-with-resources.
+
+### 179. Comment gérer les exceptions dans les `CompletableFuture`, executors et streams parallèles ?
+`🟠 Intermédiaire` · Sujet : **Exceptions**
+
+**Réponse :** `CompletableFuture` : `exceptionally`, `handle`, `whenComplete` ; une exception est encapsulée en `CompletionException` (`getCause()`). `ExecutorService.submit` stocke l'exception dans le `Future` (`get()` lève `ExecutionException`), `execute` la propage à l'`UncaughtExceptionHandler`. Streams parallèles : la première exception interrompt et est relancée ; les autres tâches peuvent continuer brièvement. Toujours consommer les futures ou définir des handlers.
+
+### 180. Qu'est-ce que `StackWalker` et comment obtenir le contexte d'appel sans coût prohibitif ?
+`🟠 Intermédiaire` · Sujet : **Exceptions**
+
+**Réponse :** `StackWalker.getInstance().walk(frames -> ...)` parcourt paresseusement la pile (Java 9) sans construire tout un `StackTraceElement[]`, avec option `RETAIN_CLASS_REFERENCE` pour obtenir la classe appelante. Utile pour les loggers, l'audit ou les frameworks ; bien plus efficace que `Thread.currentThread().getStackTrace()` ou `new Throwable()`.
+
+### 181. Comment concevoir des messages d'erreur et des codes exploitables (i18n, support, sécurité) ?
+`🟠 Intermédiaire` · Sujet : **Exceptions**
+
+**Réponse :** Message technique précis dans les logs (avec contexte : identifiants, paramètres non sensibles), message utilisateur localisé et générique dans la réponse, code d'erreur stable (`ORDER_NOT_FOUND`) documenté, identifiant de corrélation pour le support, pas de détails d'implémentation ni de données sensibles exposés, et niveaux de log adaptés (les erreurs attendues du client en `WARN` ou `INFO`, pas `ERROR`).
+
+### 182. Différence entre I/O bloquant, NIO (non-blocking) et asynchrone (AIO) en Java ?
+`🟠 Intermédiaire` · Sujet : **I/O**
+
+**Réponse :** `java.io` : un thread par connexion bloqué sur `read` (simple ; viable avec les virtual threads). NIO (`Selector`, `Channel`, `ByteBuffer`) : un thread multiplexe de nombreuses connexions non bloquantes (Netty, Tomcat NIO). NIO.2 asynchrone (`AsynchronousSocketChannel`, `CompletionHandler`) rarement utilisé directement. Java 21 réhabilite le modèle bloquant simple grâce aux virtual threads ; Netty/Reactor restent pour les besoins extrêmes.
+
+### 183. Comment fonctionne `ByteBuffer` (position, limit, flip, direct vs heap) ?
+`🟠 Intermédiaire` · Sujet : **I/O**
+
+**Réponse :** Un tampon avec `position`, `limit`, `capacity` ; on écrit puis `flip()` pour lire, `clear()`/`compact()` pour réutiliser. Heap buffers vivent dans le tas (copie lors des I/O natifs) ; direct buffers (`allocateDirect`) sont hors tas, plus rapides pour les I/O mais coûteux à allouer et limités par `MaxDirectMemorySize` (fuites possibles si mal libérés). Le FFM API `MemorySegment` modernise cette gestion.
+
+### 184. Comment lire et écrire des fichiers volumineux efficacement (streaming, memory-mapped, buffers) ?
+`🟠 Intermédiaire` · Sujet : **I/O**
+
+**Réponse :** `Files.newBufferedReader`/`lines()` en streaming (jamais `readAllLines` sur des Go), `BufferedInputStream` avec buffer de 64 Ko+, `FileChannel.transferTo` pour les copies (zero-copy), `MappedByteBuffer` pour l'accès aléatoire à de gros fichiers (attention à l'`unmap` non déterministe), `RandomAccessFile` pour les positions, et compression à la volée (`GZIPInputStream`). Mesurer : le disque est souvent le goulot.
+
+### 185. Comment gérer les encodages de caractères correctement (UTF-8, BOM, `Charset` par défaut) ?
+`🟠 Intermédiaire` · Sujet : **I/O**
+
+**Réponse :** Toujours spécifier `StandardCharsets.UTF_8` dans les readers/writers/`getBytes`/`new String` ; depuis Java 18 (JEP 400) le charset par défaut est UTF-8 partout, mais les JDK plus anciens dépendaient de l'OS (bugs Windows cp1252). Détecter/retirer le BOM sur les fichiers tiers, normaliser Unicode (`Normalizer.normalize`, NFC) pour les comparaisons, et déclarer le charset dans les `Content-Type`.
+
+### 186. Comment fonctionne `ProcessBuilder` et comment exécuter des commandes externes sans deadlock ?
+`🟠 Intermédiaire` · Sujet : **I/O**
+
+**Réponse :** `new ProcessBuilder(cmd, args).redirectErrorStream(true).start()`, lire la sortie (`inputStream`) dans un thread ou via `inheritIO`/`redirectOutput` avant `waitFor` (sinon le buffer se remplit et le processus bloque), timeout `waitFor(30, SECONDS)` + `destroyForcibly`, arguments en liste (pas de shell, évite l'injection), et `ProcessHandle` pour la supervision. Éviter d'appeler des commandes externes quand une bibliothèque Java existe.
+
+### 187. Comment implémenter un client et un serveur HTTP minimalistes en Java standard et quand le faire ?
+`🟠 Intermédiaire` · Sujet : **Réseau**
+
+**Réponse :** Client : `java.net.http.HttpClient` (HTTP/2, async). Serveur : `com.sun.net.httpserver.HttpServer` (ou `jwebserver` Java 18 pour du statique) suffit pour des outils internes, health endpoints d'un job ou des tests ; pour une vraie application, Spring Boot/Helidon/Javalin/Vert.x apportent routage, sécurité, observabilité. Comprendre le protocole (headers, keep-alive, chunked) aide au débogage.
+
+### 188. Comment gérer les timeouts, keep-alive et pools de connexions dans les clients HTTP Java ?
+`🟠 Intermédiaire` · Sujet : **Réseau**
+
+**Réponse :** Toujours fixer connect/read/response timeouts (`HttpClient.newBuilder().connectTimeout`, `HttpRequest.timeout`), réutiliser une instance de client (pool interne), HTTP/2 pour le multiplexage, limiter les connexions par hôte (Apache HttpClient `PoolingHttpClientConnectionManager`), fermer les corps de réponse (fuites de connexions), et gérer les erreurs de connexions réinitialisées par des load balancers avec un `maxLifetime` inférieur à leur timeout d'inactivité.
+
+### 189. Comment sérialiser efficacement entre services Java (JSON vs Protobuf vs Avro vs Kryo/FST) ?
+`🟠 Intermédiaire` · Sujet : **Réseau**
+
+**Réponse :** JSON (Jackson) : lisible, universel, plus lent et volumineux. Protobuf/gRPC : compact, typé, multi-langage, idéal pour l'interne. Avro : évolution de schéma et écosystème Kafka. Kryo/FST : très rapides mais Java-only et fragiles aux versions (cache, sessions). MessagePack/CBOR : JSON binaire. Choisir selon interopérabilité, évolution de schéma et coût ; toujours versionner les contrats.
+
+### 190. Comment implémenter des retries, timeouts et circuit breakers en Java pur (Resilience4j, Failsafe) ?
+`🟠 Intermédiaire` · Sujet : **Réseau**
+
+**Réponse :** Resilience4j : décorateurs `Retry`, `CircuitBreaker`, `RateLimiter`, `Bulkhead`, `TimeLimiter` composables (`Decorators.ofSupplier(...).withRetry().withCircuitBreaker()`), configurations par nom, métriques Micrometer et événements. Failsafe : API fluide similaire. Règles : retries uniquement sur erreurs transitoires et opérations idempotentes, backoff avec jitter, timeouts globaux, et tests des états du circuit breaker.
+
+### 191. Comment sécuriser un client TLS en Java (validation, pinning, mTLS, TLS 1.3) ?
+`🟠 Intermédiaire` · Sujet : **Réseau**
+
+**Réponse :** Laisser la validation par défaut (truststore, hostname verification) ; ne jamais désactiver (`TrustAll`) même en test ; ajouter des CA privées au truststore ; mTLS via `SSLContext` avec `KeyManager` ; TLS 1.3 par défaut (Java 11+), désactiver les protocoles/ciphers faibles via `jdk.tls.disabledAlgorithms` ; pinning de certificat uniquement avec rotation planifiée. Diagnostiquer avec `-Djavax.net.debug=ssl:handshake`.
+
+### 192. Comment gérer les règles de fuseaux, l'heure d'été et les calculs de durée sans bugs ?
+`🟠 Intermédiaire` · Sujet : **Dates**
+
+**Réponse :** `ZonedDateTime` pour les rendez-vous locaux (« 9h à Paris »), `Instant` pour les événements, `Duration` (temps machine) vs `Period` (calendrier) ; `plusDays(1)` sur un `ZonedDateTime` conserve l'heure locale même lors d'un changement d'heure, alors que `plus(Duration.ofHours(24))` la décale ; mettre à jour la base tzdata (`tzupdater`, mises à jour JDK) ; tester les dates autour des transitions et des fins de mois.
+
+### 193. Comment formater et parser des dates de manière robuste et localisée ?
+`🟠 Intermédiaire` · Sujet : **Dates**
+
+**Réponse :** `DateTimeFormatter.ISO_INSTANT`/`ISO_OFFSET_DATE_TIME` pour les échanges machine, `ofPattern("dd MMM yyyy", locale)` pour l'affichage, `ofLocalizedDate(FormatStyle.MEDIUM)`, gestion des `DateTimeParseException` ; les formatters sont immuables et thread-safe (contrairement à `SimpleDateFormat`). Ne jamais parser des dates utilisateur sans locale explicite, ni utiliser `yyyy` vs `YYYY` (année ISO de semaine) par erreur.
+
+### 194. Comment tester du code dépendant du temps (`Clock`, `InstantSource`, horloges fixes) ?
+`🟠 Intermédiaire` · Sujet : **Dates**
+
+**Réponse :** Injecter un `Clock` (`Clock.systemUTC()` en production, `Clock.fixed`/`Clock.offset` en test) ou `InstantSource` (Java 17) et appeler `Instant.now(clock)`/`LocalDate.now(clock)` ; jamais `Instant.now()` direct dans la logique métier. Pour les timers et délais, abstraire le scheduler ou utiliser des horloges virtuelles (Reactor `VirtualTimeScheduler`, `awaitility` pour les attentes asynchrones).
+
+### 195. Comment manipuler efficacement les chaînes : `String.format`, `MessageFormat`, `StringJoiner`, `repeat`, `strip`, `formatted` ?
+`🟠 Intermédiaire` · Sujet : **Texte**
+
+**Réponse :** `"%s".formatted(x)` (Java 15), `String.join`/`StringJoiner`, `repeat`, `strip`/`isBlank`/`lines` (Java 11), `chars()`, `indent`, text blocks. `String.format` est lent en boucle chaude (parsing du pattern) : préférer `StringBuilder` ou `MessageFormat` précompilé ; `intern()` avec parcimonie. Pour les gros volumes, `CharSequence`/`StringBuilder` évitent les copies.
+
+### 196. Comment utiliser les regex efficacement et éviter les catastrophic backtracking ?
+`🟠 Intermédiaire` · Sujet : **Texte**
+
+**Réponse :** Précompiler `Pattern` (thread-safe) et réutiliser ; `Matcher` par usage ; groupes nommés ; `find` vs `matches` ; éviter les quantificateurs imbriqués ambigus (`(a+)+`) sur des entrées non fiables (ReDoS) ; borner la taille des entrées ; préférer des parseurs dédiés pour les formats structurés (e-mail, URL, JSON). Tester avec des entrées adverses et un timeout si la regex vient de l'utilisateur.
+
+### 197. Comment parser et générer du CSV, XML et YAML en Java de façon sûre ?
+`🟠 Intermédiaire` · Sujet : **Texte**
+
+**Réponse :** CSV : Jackson CSV, OpenCSV ou univocity (guillemets, séparateurs, encodages ; ne jamais `split(",")`). XML : StAX/SAX pour le streaming, JAXB/Jackson XML pour le mapping, désactiver DTD et entités externes (XXE) sur tous les parseurs (`XMLInputFactory.SUPPORT_DTD=false`). YAML : SnakeYAML avec `SafeConstructor`/Jackson YAML, jamais de désérialisation de types arbitraires. Valider contre un schéma quand il existe.
+
+### 198. Comment gérer Unicode correctement (code points, graphèmes, tri, comparaison) ?
+`🟠 Intermédiaire` · Sujet : **Texte**
+
+**Réponse :** `String.length()` compte les unités UTF-16, pas les caractères : utiliser `codePointCount`/`codePoints()` et `BreakIterator` pour les graphèmes (emoji composés) ; comparaison et tri par `Collator` pour respecter les règles de langue (accents, casse) ; normalisation NFC/NFKC avant comparaison ; `toLowerCase(Locale.ROOT)` pour les identifiants (le turc `I` piège). Tester avec des caractères hors BMP.
+
+### 199. Comment valider et assainir des entrées en Java (injection, chemins, tailles, types) ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** Valider en allow-list (regex simples, enums, plages), typer tôt (records/value objects), limiter les tailles, normaliser et vérifier les chemins (`Path.normalize().startsWith(base)`), requêtes préparées, encoder à la sortie selon le contexte (HTML, URL, JSON via bibliothèques), rejeter plutôt que « nettoyer » les entrées suspectes, et centraliser dans des validateurs testés. Bean Validation aux frontières, invariants dans le domaine.
+
+### 200. Comment stocker et manipuler des secrets en mémoire et dans le code (char[], Vault, variables d'environnement) ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** Pas de secrets dans le code ni les images ; injection par gestionnaire de secrets (Vault, AWS Secrets Manager) ou fichiers montés ; `char[]` effaçable plutôt que `String` pour les mots de passe saisis (limité en pratique par les bibliothèques) ; ne jamais logger ni sérialiser (`@JsonIgnore`, `toString` masqué) ; rotation régulière ; et scan de secrets en CI (gitleaks). Les heap dumps contiennent les secrets : les protéger.
+
+### 201. Comment implémenter le hachage, le chiffrement et la signature correctement avec les APIs Java ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** Mots de passe : Argon2id/bcrypt (bibliothèques). Intégrité : `MessageDigest` SHA-256, HMAC (`Mac`) pour l'authentification. Chiffrement symétrique : `Cipher.getInstance("AES/GCM/NoPadding")` avec IV aléatoire unique de 12 octets et tag 128 bits, clés depuis un KMS/KeyStore. Asymétrique/signature : RSA-PSS ou Ed25519 (Java 15+), `Signature`. `SecureRandom` pour tout aléa ; jamais ECB, ni MD5/SHA-1 pour la sécurité.
+
+### 202. Comment mettre à jour et surveiller les vulnérabilités du JDK et des dépendances ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** Suivre les Critical Patch Updates trimestriels et appliquer via des images de base à jour (Temurin), rester sur une LTS supportée, scanner les dépendances (OWASP Dependency-Check, Snyk, Trivy sur l'image), SBOM, `jdeprscan` et `jdeps` pour les APIs internes, et un processus de réponse aux CVE critiques (Log4Shell) avec inventaire des versions déployées par service.
+
+### 203. Comment fonctionne le JIT en détail (interpréteur, C1, C2, profiling, déoptimisation) et comment l'observer ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Le bytecode est interprété, profilé, compilé par C1 (rapide, niveaux 1-3) puis C2 (optimisations agressives : inlining, escape analysis, vectorisation) après des milliers d'invocations ; des hypothèses invalidées (nouvelle classe chargée, branche jamais prise) déclenchent une déoptimisation vers l'interpréteur. Observer avec `-XX:+PrintCompilation`, JITWatch, JFR (compilation events) ; `-XX:CompileThreshold` et `TieredStopAtLevel` pour expérimenter.
+
+### 204. Qu'est-ce que l'inlining et les appels mono/bi/mégamorphiques ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Le JIT inline les petites méthodes chaudes (`-XX:MaxInlineSize`, `FreqInlineSize`) et dévirtualise les sites d'appel monomorphiques (une seule classe vue) ou bimorphiques via des gardes de type ; un site mégamorphique (3+ types) passe par une table virtuelle, plus lent et non inlinable. D'où l'intérêt de limiter la diversité des implémentations dans les boucles chaudes (ou de spécialiser), sans sacrifier la conception ailleurs.
+
+### 205. Comment fonctionne la mémoire de la JVM en dehors du heap (metaspace, code cache, threads, GC, direct, natif) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Metaspace (métadonnées de classes, à borner), code cache (code JIT, `ReservedCodeCacheSize`), piles de threads (`-Xss` × threads), structures GC (G1 remembered sets, cartes), buffers directs (`MaxDirectMemorySize`), mémoire native des bibliothèques (compression, TLS) et malloc arenas (glibc : `MALLOC_ARENA_MAX`). `NativeMemoryTracking` (`-XX:NativeMemoryTracking=summary` + `jcmd VM.native_memory`) détaille l'usage ; indispensable pour expliquer un RSS bien supérieur à `-Xmx`.
+
+### 206. Comment fonctionne G1 en détail (régions, young/mixed collections, remembered sets, humongous, pauses) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Heap découpé en régions (eden, survivor, old, humongous pour les gros objets > demi-région) ; collectes young fréquentes avec évacuation par copie, marquage concurrent de l'old puis collectes « mixed » ciblant les régions les plus vides ; remembered sets suivent les références entre régions. Réglages utiles : `MaxGCPauseMillis`, `G1HeapRegionSize` (objets humongous), `InitiatingHeapOccupancyPercent`. Les allocations humongous fréquentes (gros tableaux) sont un piège de performance.
+
+### 207. Comment fonctionne ZGC générationnel et quels sont ses compromis ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Marquage et relocation concurrents (pauses < 1 ms indépendantes de la taille du heap) grâce aux colored pointers et load barriers ; la version générationnelle (défaut depuis Java 23) collecte séparément les jeunes objets, réduisant le CPU et permettant des taux d'allocation élevés. Compromis : surcoût CPU et mémoire (headroom nécessaire, `SoftMaxHeapSize`), débit légèrement inférieur à Parallel ; idéal pour les services sensibles à la latence avec de gros heaps.
+
+### 208. Que sont les safepoints et pourquoi peuvent-ils provoquer des pauses hors GC ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Un safepoint est un état où tous les threads Java sont arrêtés à des points connus (pour le GC, les déoptimisations, les thread dumps, la révocation de biased locking, JFR). Un thread dans une longue boucle comptée sans safepoint poll (`-XX:+UseCountedLoopSafepoints`) retarde tout le monde (« time to safepoint »). Diagnostiquer avec `-Xlog:safepoint` ; des pauses inexpliquées viennent souvent de là ou de swapping/CPU throttling.
+
+### 209. Comment analyser un thread dump efficacement (états, verrous, patterns) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Prendre 3-5 dumps espacés de quelques secondes (`jcmd <pid> Thread.print`, `jstack`), regrouper les threads par pile identique (fastthread.io, `jstack` analyzers), repérer : nombreux `BLOCKED` sur le même moniteur (contention), `WAITING` sur un pool vide (pas de travail) ou sur une `Condition` de pool de connexions (base saturée), threads `RUNNABLE` bloqués en socket read (dépendance lente), deadlocks signalés en fin de dump. Corréler avec les métriques.
+
+### 210. Comment analyser un heap dump avec Eclipse MAT ou VisualVM (dominator tree, leak suspects, OQL) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Ouvrir le dump (peut nécessiter autant de RAM que le dump), lire « Leak Suspects », le dominator tree (objets retenant le plus de mémoire), les chemins vers les GC roots (« Path to GC Roots » en excluant les références faibles) pour comprendre qui retient, les histogrammes par classe, et OQL pour requêter (`SELECT * FROM java.util.HashMap WHERE size > 100000`). Comparer deux dumps montre la croissance.
+
+### 211. Qu'est-ce que l'`-XX:+UseStringDeduplication`, les compact strings et autres optimisations mémoire ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Compact strings (Java 9) stockent les chaînes Latin-1 sur un octet par caractère ; `UseStringDeduplication` (G1/ZGC/Shenandoah) fusionne les tableaux de chaînes identiques pendant le GC (utile pour les caches de texte dupliqué) ; compressed oops (références 32 bits sous 32 Go de heap, `-XX:+UseCompressedOops` par défaut) ; compressed class pointers ; Project Lilliput (Java 24+ expérimental) réduit les en-têtes d'objets à 8 octets.
+
+### 212. Comment fonctionne le class loading personnalisé et quels problèmes provoque-t-il (leaks, `ClassCastException` entre loaders) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Un `ClassLoader` personnalisé (plugins, hot reload, isolation) charge des classes avec délégation au parent ; une même classe chargée par deux loaders est deux types différents (`ClassCastException` « X cannot be cast to X »). Fuites : un loader reste vivant tant qu'une de ses classes est référencée (threads, `ThreadLocal`, caches statiques, drivers JDBC enregistrés), classique dans les redéploiements de serveurs d'applications. Préférer des processus séparés au chargement dynamique.
+
+### 213. Qu'est-ce que `invokedynamic` et à quoi sert-il (lambdas, concaténation, langages dynamiques) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Une instruction de bytecode dont la cible est résolue à l'exécution par un bootstrap method (`MethodHandle`) puis liée définitivement (call site) : utilisée pour les lambdas (`LambdaMetafactory` génère des classes cachées), la concaténation de chaînes (`StringConcatFactory`), les records (`ObjectMethods`), les patterns switch, et les langages dynamiques sur la JVM (Groovy, Kotlin partiellement). Il rend ces constructions rapides et optimisables par le JIT.
+
+### 214. Comment fonctionnent `MethodHandle` et `VarHandle` et quand les utiliser à la place de la réflexion ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** `MethodHandles.lookup().findVirtual(...)` produit un handle invocable (`invokeExact`) que le JIT peut inliner, bien plus rapide que `Method.invoke` après warm-up ; `VarHandle` (Java 9) offre des accès atomiques et des modes mémoire (`getAcquire`, `compareAndSet`) sur les champs, remplaçant `Unsafe` et `AtomicXFieldUpdater`. Réservés aux frameworks et aux structures concurrentes de bas niveau.
+
+### 215. Comment diagnostiquer une JVM qui consomme du CPU sans requêtes (GC, JIT, threads en boucle, timers) ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** `top -H -p <pid>` pour identifier le thread natif chaud, convertir son TID en hexadécimal et le retrouver dans un thread dump (« nid=0x... »), distinguer GC threads (`-Xlog:gc*`, heap trop petit → GC permanent), compilateur JIT (warm-up, ou déoptimisations en boucle), threads applicatifs en spin (boucle sans attente, `while(!done)`), planificateurs trop fréquents, et loggers/métriques mal configurés. async-profiler `-e cpu` confirme en une minute.
+
+### 216. Comment démarrer une JVM plus vite et consommer moins : CDS, AOT cache (Java 24/25 Leyden), Native Image, jlink ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** AppCDS (Java 10+) et l'AOT cache de Project Leyden (JEP 483 Java 24, JEP 514/515 Java 25 : `-XX:AOTCache` enregistrant classes chargées, liées et profils de méthodes) réduisent le démarrage de 40 % ou plus sans changer le code ; GraalVM Native Image supprime le JIT (démarrage instantané, mémoire minimale, build lent, réflexion à déclarer) ; `jlink` réduit la taille ; CRaC (Coordinated Restore at Checkpoint) restaure une JVM déjà chauffée (Lambda SnapStart en est dérivé).
+
+### 217. Qu'est-ce que CRaC et comment l'utiliser avec Spring Boot ?
+`🟠 Intermédiaire` · Sujet : **JVM**
+
+**Réponse :** Coordinated Restore at Checkpoint (JDK Azul/OpenJDK builds) prend un snapshot d'un processus JVM chauffé (`jcmd JDK.checkpoint`) et le restaure en millisecondes ; l'application doit fermer/rouvrir ses ressources (sockets, connexions) via les callbacks `Resource.beforeCheckpoint/afterRestore`, ce que Spring Boot 3.2+ supporte (`spring-boot-starter` + `-Dspring.context.checkpoint=onRefresh`). Contraintes : Linux, image contenant le snapshot, secrets à réinjecter après restauration.
+
+### 218. Comment fonctionne le `ForkJoinPool` (work stealing, `commonPool`, parallélisme, `ManagedBlocker`) ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Chaque worker a une deque de tâches et vole aux autres quand la sienne est vide (work stealing) ; `RecursiveTask`/`RecursiveAction` découpent récursivement (fork) et joignent. Le `commonPool` (parallélisme = cœurs − 1) est partagé par les parallel streams et `CompletableFuture.*Async` sans executor : les tâches bloquantes le saturent (`ManagedBlocker` peut compenser). Utiliser un pool dédié pour les traitements CPU longs.
+
+### 219. Qu'est-ce que la Structured Concurrency (`StructuredTaskScope`) et comment l'utiliser ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Java 21 preview / finalisée en 25 : `try (var scope = StructuredTaskScope.open()) { var a = scope.fork(() -> ...); var b = scope.fork(() -> ...); scope.join(); return combine(a.get(), b.get()); }` : les sous-tâches (virtual threads) vivent dans la portée du bloc, l'échec d'une annule les autres (`ShutdownOnFailure`/joiners), les annulations se propagent, et les traces d'observabilité restent hiérarchiques. Elle remplace les `CompletableFuture` enchevêtrés pour le fan-out/fan-in.
+
+### 220. Comment fonctionne `Phaser`, `Exchanger` et quand ces outils sont-ils pertinents ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** `Phaser` : barrière réutilisable avec nombre de participants dynamique et phases numérotées (simulations, pipelines par étapes). `Exchanger` : deux threads échangent des objets à un point de rendez-vous (double buffering producteur/consommateur). Rarement nécessaires dans le code applicatif ; les connaître montre la maîtrise de `java.util.concurrent`, mais les executors, `CompletableFuture` et les files couvrent la plupart des cas.
+
+### 221. Comment concevoir un pipeline producteur-consommateur robuste (files bornées, poison pill, arrêt, backpressure) ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** `ArrayBlockingQueue`/`LinkedBlockingQueue` bornées (backpressure naturelle : `put` bloque), plusieurs consommateurs dans un `ExecutorService`, arrêt propre par signal (`poison pill` par consommateur, ou flag + `poll(timeout)` + interruption), gestion des exceptions par tâche (ne pas tuer le consommateur), métriques de taille de file et de latence, et idempotence si les éléments peuvent être rejoués. Avec les virtual threads, un thread par élément peut remplacer le pool.
+
+### 222. Comment implémenter un rate limiter ou un token bucket thread-safe en Java ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Un compteur de jetons avec horodatage, rempli à la demande (`tokens = min(capacity, tokens + elapsed × rate)`) protégé par `synchronized`/`ReentrantLock` (contention faible) ou via `AtomicLong` + CAS sur une valeur encodée ; `tryAcquire()` retourne faux si vide. Pour le distribué, Redis + Lua ou Bucket4j ; Resilience4j `RateLimiter` fournit une version prête avec métriques.
+
+### 223. Comment éviter et détecter les fuites de threads et les executors non fermés ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Nommer les threads (`ThreadFactory`), utiliser des daemon threads ou fermer les executors dans un `@PreDestroy`/shutdown hook (`shutdown` + `awaitTermination` + `shutdownNow`), ne pas créer d'executor par requête, surveiller `jvm.threads.live`/`thread dumps` (croissance de threads `pool-N-thread-M`), et `ExecutorService` avec try-with-resources (Java 19+ : `AutoCloseable`). Les threads non-daemon empêchent l'arrêt de la JVM.
+
+### 224. Comment fonctionne `ThreadLocal` en interne et pourquoi peut-il fuir ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Chaque `Thread` porte une `ThreadLocalMap` (clés à références faibles vers le `ThreadLocal`, valeurs fortes) ; avec un pool de threads, la valeur survit à la tâche si `remove()` n'est pas appelé, causant fuites mémoire et fuites de contexte entre requêtes (données d'un utilisateur vues par un autre). Toujours `remove()` en `finally`, préférer `ScopedValue` ou le passage explicite, et éviter les `ThreadLocal` avec les virtual threads en masse.
+
+### 225. Comment fonctionne `synchronized` en interne (moniteurs, lightweight/heavyweight locks, lock elision) ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Chaque objet possède un moniteur ; `synchronized` acquiert un lightweight lock (CAS dans l'en-tête, pas de contention) ou gonfle en heavyweight lock (mutex OS, file d'attente) en cas de contention ; le biased locking a été retiré (Java 15). L'escape analysis élimine les verrous sur des objets non partagés (lock elision) et fusionne les sections adjacentes (coarsening). `synchronized` reste correct et rapide sans contention ; `ReentrantLock` apporte timeouts, équité, conditions multiples, et évite le pinning des virtual threads avant Java 24.
+
+### 226. Quelles garanties offrent `final` et les constructeurs pour la publication sûre d'objets ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** Les champs `final` correctement initialisés dans le constructeur sont visibles par tous les threads après construction, même sans synchronisation (garantie du JMM), à condition que `this` ne s'échappe pas pendant le constructeur (pas d'enregistrement de listener, pas de démarrage de thread dans le constructeur). Les champs non-`final` exigent une publication via `volatile`, verrou, collection concurrente ou initialisation statique. Les records et objets immuables sont donc trivialement thread-safe.
+
+### 227. Comment tester et prouver l'absence de data races (jcstress, Lincheck, tests de stress) ?
+`🟠 Intermédiaire` · Sujet : **Concurrence**
+
+**Réponse :** jcstress (OpenJDK) exécute des tests de concurrence sur des millions d'entrelacements et rapporte les résultats observés vs acceptables selon le JMM ; Lincheck (Kotlin/JetBrains, utilisable en Java) génère des scénarios concurrents et vérifie la linéarisabilité d'une structure de données ; tests de stress avec `ExecutorService` et compteurs pour détecter les pertes de mises à jour. Les revues de code restent indispensables : les races sont probabilistes.
+
+### 228. Comment structurer les tests unitaires d'une classe complexe (AAA, builders, paramétrés, propriétés) ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Arrange-Act-Assert avec un seul comportement par test, builders/factories pour les données (`anOrder().withStatus(PAID).build()`), tests paramétrés pour les cas limites, tests de propriétés (jqwik) pour les invariants (« le tri est idempotent »), nommage explicite (`shouldRejectNegativeQuantity`), assertions AssertJ ciblées, et pas de logique conditionnelle dans les tests. Un test difficile à écrire signale souvent une classe à découper.
+
+### 229. Quelles bonnes pratiques et anti-patterns avec Mockito (mocks vs fakes, `verify`, `ArgumentCaptor`, `spy`) ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Mocker les frontières (dépendances externes lentes ou non déterministes), pas les objets de valeur ni les collaborateurs simples (fakes en mémoire plus lisibles) ; vérifier les interactions seulement quand elles sont l'effet attendu (envoi d'un événement) ; `ArgumentCaptor` pour asserter sur les objets envoyés ; éviter `spy` sur la classe testée et les `when(...).thenReturn` en cascade qui répliquent l'implémentation ; strict stubs pour détecter les stubs inutilisés.
+
+### 230. Comment tester du code utilisant le temps, l'aléatoire, le système de fichiers et le réseau ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Injecter `Clock`, `RandomGenerator` (ou une graine fixe), `FileSystem` (Jimfs en mémoire) ou `@TempDir` JUnit 5, `HttpClient` derrière une interface (WireMock/MockWebServer pour l'intégration), et `Awaitility` pour les assertions asynchrones sans `Thread.sleep`. Ces dépendances rendues explicites améliorent aussi la conception (ports/adaptateurs).
+
+### 231. Comment organiser tests unitaires, d'intégration et E2E dans un build Maven/Gradle et en CI ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Surefire (unit, rapides, à chaque commit) vs Failsafe (`*IT`, Testcontainers, phase `verify`) ; profils pour les tests longs (nightly), parallélisation (JUnit 5 `junit.jupiter.execution.parallel`, forks Maven), rapports agrégés (JaCoCo avec seuils raisonnables par module), tests flaky mis en quarantaine et corrigés, et ordonnancement CI (unit → intégration → E2E → déploiement). Les tests doivent rester déterministes et indépendants de l'ordre.
+
+### 232. Qu'est-ce que le testing par approbation (Approval/Snapshot tests) et quand l'utiliser en Java ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Comparer la sortie d'un traitement (JSON, rapport, rendu) à une version approuvée stockée dans le dépôt (ApprovalTests, `JsonAssert`), avec diff lisible à la modification ; utile pour les objets complexes, les migrations de code legacy (tests de caractérisation) et les formats de sortie. Risque : approbations aveugles lors des mises à jour ; à combiner avec des tests d'intention ciblés.
+
+### 233. Comment mesurer et utiliser la couverture de code intelligemment (JaCoCo, seuils, branches) ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** JaCoCo instrumente et rapporte lignes/branches/instructions ; fixer des seuils par module sur les branches plutôt qu'un global de lignes, exclure le code généré, viser la couverture des chemins critiques plutôt que 100 %, et croiser avec le mutation testing pour la qualité. Une couverture élevée sans assertions pertinentes ne prouve rien ; une couverture faible sur le domaine est un signal réel.
+
+### 234. Comment structurer un projet Maven multi-modules et optimiser le build (BOM, profils, cache, parallélisme) ?
+`🟠 Intermédiaire` · Sujet : **Build**
+
+**Réponse :** Parent avec `dependencyManagement` et `pluginManagement`, modules par domaine/couche, `-T 1C` pour le build parallèle, `mvn -pl module -am` pour les builds partiels, Maven Build Cache Extension, profils pour les tests longs et les environnements, wrapper `mvnw`, versions fixées (`versions:lock-snapshots`), enforcer (Java version, convergence), reproducible builds (`project.build.outputTimestamp`), et CI avec cache du dépôt local.
+
+### 235. Comment fonctionne Gradle (tâches, configuration cache, build cache, version catalogs, convention plugins) ?
+`🟠 Intermédiaire` · Sujet : **Build**
+
+**Réponse :** Graphe de tâches avec entrées/sorties déclarées permettant l'incrémentalité et le build cache (local/distant) ; configuration cache pour accélérer le démarrage ; `libs.versions.toml` (version catalog) centralise les dépendances ; convention plugins (`buildSrc`/`build-logic`) partagent la configuration entre modules sans duplication ; `gradle --scan` pour analyser. Les DSL Kotlin apportent typage et complétion.
+
+### 236. Comment gérer les versions et releases d'une application/bibliothèque Java (SemVer, CalVer, release plugins, tags) ?
+`🟠 Intermédiaire` · Sujet : **Build**
+
+**Réponse :** Applications déployées en continu : version calendaire ou SHA + numéro de build, tags Git par déploiement. Bibliothèques : SemVer strict, `maven-release-plugin` ou `jreleaser`/`semantic-release` avec Conventional Commits, publication sur Maven Central (signature GPG, Sonatype) ou un dépôt interne, changelog généré, et vérification de compatibilité binaire (japicmp) avant chaque version mineure.
+
+### 237. Comment créer une image Docker optimale pour une application Java (couches, JRE minimal, non-root, cache) ?
+`🟠 Intermédiaire` · Sujet : **Build**
+
+**Réponse :** Multi-stage : build avec JDK (cache des dépendances Maven/Gradle en couche séparée), runtime avec JRE minimal (`eclipse-temurin:21-jre-alpine`/distroless ou `jlink`), extraction des couches Boot (`layertools`/`jarmode=tools`), utilisateur non-root, `ENTRYPOINT ["java", ...]` en forme exec (signaux), `JAVA_TOOL_OPTIONS` pour les flags, `MaxRAMPercentage`, AppCDS/AOT cache généré au build, pas de secrets ni d'outils inutiles, scan de vulnérabilités, et tags immuables.
+
+### 238. Qu'est-ce que Jib, Buildpacks (Paketo) et comment se comparent-ils au Dockerfile ?
+`🟠 Intermédiaire` · Sujet : **Build**
+
+**Réponse :** Jib (Google) construit des images optimisées directement depuis Maven/Gradle sans Docker ni Dockerfile (couches dépendances/ressources/classes, reproductibles). Buildpacks Paketo (`spring-boot:build-image`) détectent le projet et produisent des images sécurisées et à jour (base, JVM, mémoire calculée) sans Dockerfile, avec rebase rapide des couches de base. Le Dockerfile reste le plus flexible et transparent ; Jib/Buildpacks réduisent la maintenance.
+
+### 239. Comment choisir entre Spring Boot, Quarkus, Micronaut, Helidon et Vert.x pour un nouveau service ?
+`🟠 Intermédiaire` · Sujet : **Écosystème**
+
+**Réponse :** Spring Boot : écosystème et communauté les plus larges, standard en entreprise, natif possible. Quarkus : orienté Kubernetes/natif (build-time), dev mode remarquable, démarrage rapide, extensions curées. Micronaut : DI à la compilation, faible mémoire, proche de Spring en style. Helidon : Oracle, MicroProfile ou Níma sur virtual threads. Vert.x : toolkit réactif événementiel très performant. Choisir selon les compétences de l'équipe, le besoin natif/serverless et l'écosystème requis.
+
+### 240. Qu'est-ce que Jakarta EE et MicroProfile aujourd'hui, et comment se positionnent-ils face à Spring ?
+`🟠 Intermédiaire` · Sujet : **Écosystème**
+
+**Réponse :** Jakarta EE (ex Java EE, Eclipse Foundation) : spécifications (Servlet, Persistence, CDI, REST, Bean Validation) implémentées par les serveurs (WildFly, Open Liberty, Payara, GlassFish) ; MicroProfile ajoute config, health, metrics, fault tolerance, OpenAPI, JWT pour les microservices. Spring réutilise plusieurs spécifications Jakarta (Servlet, Persistence, Validation) tout en offrant son propre modèle. Le choix dépend de l'écosystème d'entreprise existant.
+
+### 241. Comment fonctionne le passage à Kotlin dans un projet Java et quelles interopérabilités surveiller ?
+`🟠 Intermédiaire` · Sujet : **Écosystème**
+
+**Réponse :** Kotlin compile en bytecode JVM et coexiste fichier par fichier avec Java (même module) ; interop : nullabilité (annotations JSpecify/Jetbrains côté Java pour éviter les platform types), `@JvmStatic`/`@JvmOverloads`/`@JvmField` pour l'API Java, data classes vs records, coroutines vs virtual threads/CompletableFuture, Lombok incompatible avec Kotlin dans le même module. Spring supporte Kotlin nativement ; migrer par les tests ou les nouveaux modules d'abord.
+
+### 242. Quels outils de qualité de code adopter (Error Prone, NullAway, SpotBugs, PMD, Checkstyle, Sonar) et comment les intégrer sans friction ?
+`🟠 Intermédiaire` · Sujet : **Écosystème**
+
+**Réponse :** Formatage automatique (Spotless + google-java-format/palantir), Error Prone (bugs à la compilation) + NullAway (null-safety), SpotBugs avec find-sec-bugs, PMD/Checkstyle pour le style résiduel, SonarQube/SonarCloud pour le suivi et les quality gates sur le nouveau code uniquement (ne pas bloquer sur le legacy). Introduire progressivement (warnings → erreurs), et faire échouer la CI sur les nouvelles violations seulement.
+
+### 243. Qu'est-ce qu'OpenRewrite et comment automatiser les migrations (Java, Spring Boot, dépendances) ?
+`🟠 Intermédiaire` · Sujet : **Écosystème**
+
+**Réponse :** Un moteur de refactoring à grande échelle basé sur un AST sémantique (LST) avec des recettes composables : migration Java 8 → 21, `javax` → `jakarta`, Spring Boot 2 → 3 → 4, JUnit 4 → 5, remplacement de bibliothèques, corrections de sécurité ; exécuté via plugin Maven/Gradle ou Moderne à l'échelle d'une organisation. Vérifier les diffs et les tests après chaque recette ; combiner avec les migrations manuelles restantes.
+
+### 244. Comment tirer parti des assistants IA pour Java (génération, tests, migration) tout en maintenant la qualité ?
+`🟠 Intermédiaire` · Sujet : **Écosystème**
+
+**Réponse :** Fournir le contexte (conventions, versions de Java/Spring, architecture) dans un fichier d'instructions, demander du code moderne (records, virtual threads, `RestClient`) explicitement car les modèles privilégient souvent des APIs anciennes, faire générer et exécuter les tests, relire comme une PR (sécurité, exceptions avalées, dépendances inventées), utiliser OpenRewrite pour les migrations mécaniques et l'IA pour les cas restants, et garder les décisions d'architecture humaines.
+
+### 245. Comment concevoir des value objects typés (identifiants, montants, e-mails) sans surcoût ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Records à un composant avec validation dans le constructeur compact (`record Email(String value) { Email { require(valid(value)); } }`), `toString` utile, conversions explicites (`static Email of(String)`), et intégration : `AttributeConverter` JPA, `@JsonValue`/`@JsonCreator` Jackson, `Converter` Spring pour les paramètres de requête. Le JIT élimine souvent l'allocation (escape analysis) ; Valhalla (value classes, en preview) supprimera le reste.
+
+### 246. Comment modéliser des états et transitions (machines à états) proprement en Java ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** `enum State` avec les transitions autorisées (`canTransitionTo`) ou `sealed interface State permits Draft, Submitted, Approved` avec records portant les données propres à chaque état et des méthodes de transition retournant un nouvel état (immuabilité, exhaustivité du `switch`), validations dans l'agrégat, persistance du nom d'état + colonnes, événements de domaine émis aux transitions, et tests exhaustifs des transitions interdites. Spring Statemachine pour les cas très complexes.
+
+### 247. Comment implémenter un Builder, un Factory et un Registry sans classes Lombok ni frameworks ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Builder : classe imbriquée statique avec méthodes chaînées retournant `this`, validation dans `build()`, ou records + `with`-ers pour les objets simples. Factory : méthodes statiques nommées (`Order.draft(customer)`) ou une classe injectant les dépendances nécessaires à la création. Registry : `Map<Key, Handler>` construit à partir d'une `List<Handler>` injectée (`handler.supports(key)`), immuable après construction. Rester simple : chaque pattern doit résoudre un problème réel.
+
+### 248. Comment concevoir une API fluide et un DSL interne en Java (chaînage, types de phases, lambdas) ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Interfaces représentant les étapes (`From → Where → Select`) pour guider l'ordre des appels par le typage, méthodes retournant l'étape suivante, lambdas pour les blocs (`query(q -> q.where(...))`), `Consumer<Builder>` pour la configuration imbriquée, immuabilité des objets intermédiaires, et messages d'erreur clairs. Exemples : `Stream`, `HttpRequest.newBuilder`, `Comparator`, Spring Security DSL.
+
+### 249. Comment documenter du code Java efficacement (Javadoc, ADR, README, exemples exécutables) ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Javadoc sur les APIs publiques (contrat, préconditions, exceptions, exemples `{@snippet}` Java 18), pas de commentaires paraphrasant le code, noms explicites, ADR pour les décisions, README avec démarrage et architecture, diagrammes C4 générés (Structurizr) ou Modulith, tests lisibles comme documentation, et `package-info.java` pour la responsabilité d'un package. La documentation est versionnée et revue avec le code.
+
+### 250. Quelles règles pour écrire du Java lisible et maintenable (taille, nommage, commentaires, immutabilité) ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Méthodes courtes avec un niveau d'abstraction, noms révélant l'intention, early return, pas de booléens en paramètres, `final`/records par défaut, éviter les `null`, exceptions ciblées, pas de commentaires obsolètes, formatage automatique, dépendances explicites par constructeur, petits packages cohérents, et suppression du code mort. Une revue se concentre sur la conception et la lisibilité, l'outillage sur le style.
+
+### 251. Comment mener une revue de code Java : que vérifier en priorité ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Correction (cas limites, null, concurrence, transactions), sécurité (injections, secrets, validation, désérialisation), lisibilité et nommage, conception (responsabilités, couplage, duplication), tests (présence, pertinence, non-flaky), performance sur les chemins chauds (N+1, allocations en boucle), compatibilité (API, schéma, migrations), observabilité (logs/métriques pertinents), et documentation. Petites PR, commentaires bienveillants et actionnables, distinction bloquant/suggestion.
+
+### 252. Comment aborder un code legacy Java sans tests avant de le modifier ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Comprendre par la lecture et les logs, écrire des tests de caractérisation (ApprovalTests, golden master) capturant le comportement actuel, isoler les dépendances par des « seams » (extraction d'interface, injection, sous-classage en test), refactorer par petits pas sûrs (extraction de méthodes, renommages avec l'IDE), ajouter des tests unitaires sur le code extrait, puis implémenter le changement. Ne jamais réécrire d'un bloc sans filet.
+
+### 253. Comment préparer et réussir un entretien technique Java (approche, questions à poser, erreurs courantes) ?
+`🟠 Intermédiaire` · Sujet : **Design**
+
+**Réponse :** Réviser les fondamentaux (collections, concurrence, JVM, exceptions), le Java moderne (records, sealed, streams, virtual threads), l'écosystème (Spring, tests, build), et savoir expliquer ses projets (décisions, compromis, incidents). En live coding : clarifier le problème, penser à voix haute, écrire des tests, gérer les cas limites. Erreurs : réciter sans comprendre, ignorer la complexité, ne pas admettre une inconnue. Poser des questions sur l'équipe, le code, la dette et les pratiques.

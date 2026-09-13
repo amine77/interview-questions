@@ -2,7 +2,7 @@
 
 > Signals, standalone components, control flow, SSR, Zoneless, RxJS integration
 
-**101 questions**
+**151 questions**
 
 ---
 
@@ -510,3 +510,253 @@
 `🟠 Intermédiaire` · Sujet : **Angular**
 
 **Réponse :** v20 : signaux stables (`effect`, `linkedSignal`, `toSignal`), zoneless en developer preview → stable, `httpResource`, style guide révisé, Vitest expérimental, `TestBed` bindings, support TypeScript 5.8, Chrome DevTools intégration. v21 (nov. 2025) : zoneless par défaut pour les nouveaux projets, Vitest par défaut, Signal Forms expérimentaux, Angular Aria (composants headless accessibles), MCP server pour les assistants IA, et `Angular CLI` sur esbuild uniquement. Vérifier le blog officiel pour les détails.
+
+### 102. Quels opérateurs RxJS restent indispensables dans une application Angular à base de Signals ?
+`🟠 Intermédiaire` · Sujet : **RxJS**
+
+**Réponse :** `switchMap`/`exhaustMap`/`concatMap`/`mergeMap` pour orchestrer les appels (annulation, sérialisation), `debounceTime`+`distinctUntilChanged` pour les saisies, `catchError` avec valeur de repli, `retry` avec backoff, `takeUntilDestroyed`, `combineLatest`/`forkJoin` pour agréger, `shareReplay(1)` pour partager. Les signaux gèrent l'état synchrone ; RxJS reste pour les flux asynchrones et temporels.
+
+### 103. Différence entre `switchMap`, `mergeMap`, `concatMap`, `exhaustMap` avec des exemples Angular ?
+`🟠 Intermédiaire` · Sujet : **RxJS**
+
+**Réponse :** `switchMap` : annule le précédent (recherche en saisie, chargement selon route). `mergeMap` : tout en parallèle (uploads indépendants). `concatMap` : en file, ordonné (sauvegardes successives). `exhaustMap` : ignore les nouveaux tant que l'actuel n'est pas fini (bouton de soumission anti double-clic). Le mauvais choix crée des courses ou des doublons.
+
+### 104. Comment gérer le partage d'un observable HTTP (`shareReplay`) sans fuite ni requêtes multiples ?
+`🟠 Intermédiaire` · Sujet : **RxJS**
+
+**Réponse :** Un `HttpClient.get` est froid : chaque abonné relance la requête (`| async` deux fois = deux appels). `shareReplay({ bufferSize: 1, refCount: true })` partage et rejoue la dernière valeur, se désabonnant quand plus personne n'écoute. Alternative moderne : `toSignal(obs)` dans un service (un seul abonnement) ou `httpResource`.
+
+### 105. Comment implémenter un retry avec backoff et une gestion d'erreurs propre dans un service Angular ?
+`🟠 Intermédiaire` · Sujet : **RxJS**
+
+**Réponse :** `retry({ count: 3, delay: (err, n) => timer(Math.min(1000 * 2 ** n, 10000)) })` uniquement pour les erreurs transitoires (5xx, réseau), puis `catchError` transformant l'erreur en objet métier (`throwError(() => new ApiError(...))`) ou en valeur de repli, et un intercepteur pour les cas globaux. Ne pas réessayer les erreurs 4xx ni les requêtes non idempotentes.
+
+### 106. Comment fonctionne l'égalité des signaux (`equal`) et pourquoi les objets ne déclenchent-ils pas toujours de mise à jour ?
+`🟠 Intermédiaire` · Sujet : **Signals**
+
+**Réponse :** `signal(obj)` compare par `Object.is` : `set` avec le même objet muté ne notifie pas ; il faut créer un nouvel objet (`update(s => ({ ...s, x }))`) ou fournir `equal: (a, b) => deepEqual(a, b)` pour éviter des recalculs inutiles sur des valeurs structurellement égales. Les tableaux suivent la même règle : `update(arr => [...arr, item])`.
+
+### 107. Qu'est-ce que `untracked` et quand l'utiliser dans `effect` et `computed` ?
+`🟠 Intermédiaire` · Sujet : **Signals**
+
+**Réponse :** `untracked(() => sig())` lit un signal sans créer de dépendance : dans un `effect`, pour lire des valeurs contextuelles sans que leur changement ne relance l'effet, ou pour appeler des fonctions qui lisent des signaux en interne. Dans un `computed`, il limite les recalculs. À utiliser avec parcimonie : une dépendance manquante est aussi une source de bugs.
+
+### 108. Pourquoi ne faut-il pas écrire dans un signal depuis un `effect`, et quelles alternatives ?
+`🟠 Intermédiaire` · Sujet : **Signals**
+
+**Réponse :** Écrire dans un signal pendant un effet crée des chaînes de mise à jour difficiles à suivre et des risques de boucles ; Angular le permettait avec `allowSignalWrites` (devenu défaut en v19) mais recommande `computed` pour les valeurs dérivées, `linkedSignal` pour un état réinitialisable, et les événements/`resource` pour les chargements. Les effets restent pour la synchronisation vers l'extérieur (DOM, stockage, logs).
+
+### 109. Comment convertir entre observables et signaux dans les deux sens et quels pièges ?
+`🟠 Intermédiaire` · Sujet : **Signals**
+
+**Réponse :** `toSignal(obs, { initialValue })` s'abonne dans un contexte d'injection et se désabonne à la destruction ; sans `initialValue` le type inclut `undefined` (ou `requireSync: true` pour un `BehaviorSubject`). `toObservable(sig)` émet lors des changements (via un `effect`, donc asynchrone, pas immédiat). Ne pas appeler `toSignal` dans une méthode appelée plusieurs fois (fuite d'abonnements).
+
+### 110. Comment concevoir un service d'état avec Signals (pattern store léger) ?
+`🟠 Intermédiaire` · Sujet : **Signals**
+
+**Réponse :** État privé `#state = signal<State>(initial)`, sélecteurs `computed` exposés en lecture seule, méthodes de mise à jour immuables via `update`, effets de chargement via `resource` ou `rxMethod`-like, et `readonly` sur les signaux exposés. Découper par feature, fournir au niveau de la route (`providers`) pour un cycle de vie lié à la fonctionnalité, et tester le service sans TestBed quand possible.
+
+### 111. Qu'est-ce que Signal Forms (Angular 21, expérimental) et en quoi diffèrent-ils des Reactive Forms ?
+`🟠 Intermédiaire` · Sujet : **Signals**
+
+**Réponse :** Un nouveau modèle de formulaires où le modèle est un signal (`form(model, schema)`) et où validation, état et désactivation sont dérivés de façon réactive via un schéma déclaratif (`required`, `email`, règles dépendantes) ; la directive `[field]` lie les champs. Objectif : typage complet, moins de boilerplate que `FormGroup` et intégration native aux signaux. À suivre jusqu'à la stabilisation.
+
+### 112. Comment implémenter des micro-frontends avec Angular (Module Federation, Native Federation, web components) ?
+`🟠 Intermédiaire` · Sujet : **Architecture**
+
+**Réponse :** Native Federation (esbuild) ou Module Federation (webpack) chargent à l'exécution des remotes Angular exposés, partageant Angular/RxJS en singleton avec des versions compatibles ; ou encapsuler chaque application en web component (`@angular/elements`) pour une indépendance totale (au prix de duplication). Coûts : versions alignées, routing distribué, design system partagé, et observabilité. À réserver aux organisations multi-équipes.
+
+### 113. Comment intégrer un design system et Storybook dans un projet Angular ?
+`🟠 Intermédiaire` · Sujet : **Architecture**
+
+**Réponse :** Bibliothèque de composants UI (workspace ou monorepo Nx) avec tokens de design (CSS variables), composants standalone documentés dans Storybook (`@storybook/angular`, stories avec `argTypes`, contrôles, tests d'interaction, tests visuels via Chromatic ou Playwright), a11y addon, et versionnement SemVer. Les applications consomment le package ; les changements passent par revue de design et de code.
+
+### 114. Comment gérer la configuration runtime (URL d'API par environnement) sans rebuild ?
+`🟠 Intermédiaire` · Sujet : **Architecture**
+
+**Réponse :** `environment.ts` est compilé : pour un « build once, deploy anywhere », charger un `config.json` servi par le déploiement (ConfigMap Kubernetes monté dans l'image Nginx) via `provideAppInitializer` + `HttpClient`, ou injecter les valeurs dans `index.html` (`window.__env`) à l'exécution. Ne jamais y placer de secrets ; valider le schéma au démarrage.
+
+### 115. Comment déployer une SPA Angular en production (Nginx, Docker, S3/CloudFront, cache) ?
+`🟠 Intermédiaire` · Sujet : **Architecture**
+
+**Réponse :** Build de production avec hachage des fichiers ; `index.html` en `no-cache` et les assets hachés en `immutable, max-age=1y` ; fallback vers `index.html` pour le routing (Nginx `try_files`, CloudFront error page 403/404 → 200 `index.html`, ou mieux une fonction de réécriture) ; compression Brotli/gzip ; headers de sécurité (CSP, HSTS) ; image Docker Nginx non-root ; SSR via un serveur Node ou des fonctions edge si SEO requis.
+
+### 116. Comment intégrer Angular avec un backend Spring Boot (proxy dev, CORS, CSRF, cookies) ?
+`🟠 Intermédiaire` · Sujet : **Architecture**
+
+**Réponse :** En développement, `proxy.conf.json` route `/api` vers Spring pour éviter CORS. En production, servir sous le même domaine (reverse proxy) pour utiliser les cookies `SameSite` et éviter CORS, ou configurer CORS côté Spring avec origines explicites. CSRF : cookie `XSRF-TOKEN` lu par `withXsrfConfiguration`. Typage partagé via OpenAPI (génération de clients TypeScript avec openapi-generator ou `ng-openapi-gen`).
+
+### 117. Comment générer un client TypeScript typé depuis OpenAPI et l'intégrer proprement ?
+`🟠 Intermédiaire` · Sujet : **Architecture**
+
+**Réponse :** Générer (`openapi-generator-cli generate -g typescript-angular` ou `ng-openapi-gen`, `orval`, `openapi-typescript` + fetch) dans un package ou dossier non édité manuellement, en CI à partir de la spécification du backend (contract-first), envelopper les services générés dans des façades applicatives (mapping vers le modèle front, gestion d'erreurs), et faire échouer la CI si le contrat change de façon incompatible.
+
+### 118. Comment diagnostiquer et corriger des re-rendus excessifs ?
+`🟠 Intermédiaire` · Sujet : **Performance**
+
+**Réponse :** Angular DevTools (profiler des cycles de détection, composants les plus coûteux), `ChangeDetectionStrategy.OnPush` généralisé, pipes purs ou `computed` au lieu de méthodes appelées dans le template, `track` stable dans `@for`, éviter les objets/fonctions créés dans le template, découper les gros composants, `@defer` pour les zones non visibles, et zoneless pour éliminer les déclenchements inutiles (timers, événements globaux).
+
+### 119. Comment gérer les gros tableaux de données (data grids) efficacement ?
+`🟠 Intermédiaire` · Sujet : **Performance**
+
+**Réponse :** Pagination et tri côté serveur, virtual scroll (CDK) ou grilles spécialisées (AG Grid, Angular Material table avec `MatTableDataSource` pour les petits volumes), colonnes `track`, cellules en OnPush, formatage précalculé (`computed`) plutôt que pipes lourds par cellule, `@defer` pour les panneaux annexes, et Web Workers pour les calculs (agrégations, exports) afin de garder l'UI fluide.
+
+### 120. Comment utiliser les Web Workers et le streaming dans Angular ?
+`🟠 Intermédiaire` · Sujet : **Performance**
+
+**Réponse :** `ng generate web-worker` crée un worker (bundle séparé) ; communication par `postMessage`, encapsulée dans un service exposant un observable ou un signal ; pour les calculs lourds, le parsing de fichiers, la cryptographie. Streaming HTTP : `fetch` avec `ReadableStream` ou `HttpClient` avec `observe: 'events'` et `reportProgress`, ou SSE (`EventSource`) pour les flux serveur (progression, chat IA) affichés progressivement via signaux.
+
+### 121. Comment mesurer les Core Web Vitals d'une application Angular et les améliorer ?
+`🟠 Intermédiaire` · Sujet : **Performance**
+
+**Réponse :** Lighthouse/PageSpeed et le CrUX pour les données terrain, `web-vitals` envoyé à l'analytics. LCP : SSR/prerender, `NgOptimizedImage` avec `priority`, polices préchargées, `@defer` pour le hors-écran. INP : OnPush/zoneless, gestionnaires d'événements légers, éviter le travail synchrone long. CLS : dimensions d'images, skeletons de tailles fixes, polices avec `size-adjust`. Budgets en CI pour éviter les régressions.
+
+### 122. Comment tester un composant à Signals et `input.required` avec TestBed ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** `TestBed.createComponent(Comp, { bindings: [inputBinding('user', signal(user))] })` (v20) ou `fixture.componentRef.setInput('user', user)` ; `fixture.detectChanges()` (ou `await fixture.whenStable()` en zoneless) ; assertions sur le DOM (`fixture.nativeElement.querySelector`, Testing Library `screen.getByRole`) ; tester les `output` via `subscribe` ou `outputBinding` ; `TestBed.tick()`/`flushEffects` pour les effets.
+
+### 123. Comment tester un service utilisant `resource`/`httpResource` et `HttpClient` ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** `provideHttpClient()` + `provideHttpClientTesting()`, `TestBed.inject(HttpTestingController)`, déclencher le chargement (créer le service dans un contexte d'injection, `TestBed.runInInjectionContext`), `expectOne(url).flush(data)`, puis `await fixture.whenStable()`/`TestBed.tick()` et vérifier `resource.value()`/`isLoading()`. `httpTesting.verify()` en `afterEach` détecte les requêtes inattendues.
+
+### 124. Comment tester le routing, les guards et les resolvers ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** `provideRouter(routes)` dans le TestBed, `RouterTestingHarness` (v15+) : `harness.navigateByUrl('/orders/1', OrderComponent)` retourne l'instance du composant activé et permet d'asserter le DOM ; guards fonctionnels testés via `TestBed.runInInjectionContext(() => guard(route, state))` avec des services mockés ; vérifier les redirections avec `TestBed.inject(Router).url` et les `UrlTree`.
+
+### 125. Comment organiser mocks, fixtures et données de test en Angular (factories, MSW, harnesses) ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Factories typées (`buildUser({ role: 'admin' })`) plutôt que des JSON figés, MSW pour mocker l'API de façon réaliste en tests et en Storybook, component harnesses pour les composants complexes, `provide*` de test (`provideMockStore`, `provideHttpClientTesting`), et un dossier `testing/` par feature exportant ces utilitaires. Éviter les `spyOn` en cascade : préférer des fakes simples.
+
+### 126. Comment mettre en place les tests visuels et de contrat côté front ?
+`🟠 Intermédiaire` · Sujet : **Tests**
+
+**Réponse :** Visuels : Storybook + Chromatic ou Playwright `toHaveScreenshot` sur les composants du design system, seuils de tolérance, exécution en CI sur PR. Contrat : Pact (consumer-driven) où le front définit ses attentes vérifiées contre le backend Spring, ou validation du client généré contre la spécification OpenAPI courante ; les deux détectent les ruptures avant le déploiement.
+
+### 127. Comment gérer les rôles et permissions dans l'UI (directives, guards, menus) sans dupliquer la logique serveur ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** Un service d'autorisation (signaux dérivés des claims du jeton ou d'un endpoint `/me/permissions`), une directive structurelle `*appHasPermission="'orders:write'"` (ou `@if (auth.can('orders:write'))`), guards `canMatch` pour les routes, et menus filtrés par `computed`. L'UI ne fait que masquer : chaque action reste vérifiée côté API. Centraliser les noms de permissions dans des constantes partagées avec le backend.
+
+### 128. Comment sécuriser l'utilisation de contenu HTML riche (éditeur, Markdown) dans Angular ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** Angular sanitize automatiquement `[innerHTML]` (suppression des scripts, événements) ; pour du HTML de confiance produit par un éditeur, sanitizer côté serveur (OWASP Java HTML Sanitizer, DOMPurify côté client) avec une allow-list stricte avant `bypassSecurityTrustHtml` ; CSP interdisant les scripts inline ; liens externes avec `rel="noopener noreferrer"` ; et tests XSS automatisés sur les champs riches.
+
+### 129. Comment gérer les dépendances npm et la supply chain d'un projet Angular ?
+`🟠 Intermédiaire` · Sujet : **Sécurité**
+
+**Réponse :** `package-lock.json` versionné et `npm ci` en CI, `npm audit`/Dependabot/Renovate pour les mises à jour groupées, vérification des licences, `overrides` pour forcer des correctifs transitifs, limiter les dépendances (préférer le CDK et les APIs natives), scanner en CI (Snyk, OSV), et surveiller les incidents npm (typosquatting, packages compromis) : privilégier les packages maintenus et signés (provenance npm).
+
+### 130. Comment rendre un composant personnalisé (menu, combobox, dialogue) accessible avec le CDK ?
+`🟠 Intermédiaire` · Sujet : **Accessibilité**
+
+**Réponse :** Utiliser les primitives CDK : `cdkMenu`/`cdkMenuTrigger` (navigation clavier, ARIA), `cdkListbox`, `cdkTrapFocus` et `Dialog` du CDK (focus initial, restauration, `aria-modal`), `FocusKeyManager` pour les listes personnalisées, `LiveAnnouncer`, et Angular Aria (v21) pour des composants headless conformes aux patterns WAI-ARIA. Tester au clavier et avec un lecteur d'écran, plus axe en CI.
+
+### 131. Comment gérer les annonces, le focus et les titres lors des navigations de route ?
+`🟠 Intermédiaire` · Sujet : **Accessibilité**
+
+**Réponse :** `TitleStrategy` pour un titre de page significatif, focus déplacé sur le `h1` ou le conteneur principal après navigation (`Router.events` `NavigationEnd` + `afterNextRender`), `LiveAnnouncer` pour les messages de statut (chargement, erreurs), skip links, `withInMemoryScrolling({ scrollPositionRestoration: 'enabled' })`, et respect de `prefers-reduced-motion` pour les animations de transition.
+
+### 132. Comment gérer les animations en Angular moderne (`@angular/animations` déprécié, `animate.enter/leave`, View Transitions) ?
+`🟠 Intermédiaire` · Sujet : **Animations**
+
+**Réponse :** Le module `@angular/animations` est déprécié (v20.2) au profit du CSS natif : `animate.enter="fade-in"` et `animate.leave="fade-out"` (v20.2+) appliquent des classes CSS lors de l'entrée/sortie, ou Web Animations API ; transitions de route via `withViewTransitions()` (View Transitions API du navigateur, `view-transition-name`). Respecter `prefers-reduced-motion` et garder les animations légères.
+
+### 133. Comment configurer ESLint pour Angular (`angular-eslint`) et quelles règles adopter ?
+`🟠 Intermédiaire` · Sujet : **Outils**
+
+**Réponse :** `ng add angular-eslint` installe les règles TypeScript et de templates : nommage des sélecteurs, interdiction de `any`, `prefer-standalone`, `prefer-signals` (v20+), règles d'accessibilité de templates, ordre des membres, pas de `subscribe` imbriqués (`rxjs-x`), boundaries entre features. Exécuter en pre-commit (lint-staged) et en CI ; corriger progressivement avec des règles en `warn` puis `error`.
+
+### 134. Comment utiliser Nx ou les workspaces Angular pour un monorepo, et quels bénéfices ?
+`🟠 Intermédiaire` · Sujet : **Outils**
+
+**Réponse :** Nx ajoute au workspace Angular un graphe de projets, le cache local/distant des builds et tests, l'exécution uniquement des projets affectés (`nx affected`), les générateurs et règles de frontières entre bibliothèques (`type:feature`, `scope:orders`), et l'intégration de Vite/Vitest/Playwright. Les workspaces Angular natifs (`projects` multiples) suffisent pour quelques applications et bibliothèques sans cache distribué.
+
+### 135. Comment intégrer les assistants IA au développement Angular (Angular MCP, `llms.txt`, bonnes pratiques) ?
+`🟠 Intermédiaire` · Sujet : **Outils**
+
+**Réponse :** Angular fournit un serveur MCP (`ng mcp`, v20.1+) donnant à l'assistant la documentation à jour, les bonnes pratiques (`get_best_practices`), la liste des projets et les migrations, et un `llms.txt`/`llms-full.txt` sur angular.dev. Compléter par un fichier d'instructions projet (conventions, structure, versions) et relire les propositions : les modèles produisent encore souvent du code NgModule/`@Input` obsolète.
+
+### 136. Comment fonctionne le HMR et le dev server Vite dans Angular et que faire en cas de comportement étrange ?
+`🟠 Intermédiaire` · Sujet : **Outils**
+
+**Réponse :** Le builder `@angular/build:dev-server` utilise Vite : HMR des styles et templates (v19+ pour les templates de composants) sans rechargement complet, conservation de l'état. En cas d'état incohérent (services singleton conservés, effets dupliqués), recharger la page ; désactiver avec `--no-hmr` pour isoler un bug ; vider `.angular/cache` si le build est corrompu.
+
+### 137. Comment implémenter une gestion de dialogues/modales réutilisable et typée ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** CDK `Dialog` (ou `MatDialog`) via un service `DialogService.open<TResult>(Component, { data })` retournant un observable/promise typé ; composants de dialogue standalone recevant `DIALOG_DATA` via `inject`, résultats via `DialogRef.close(result)` ; gestion du focus et de l'échappement fournies ; routes avec outlet nommé si l'URL doit refléter le dialogue ; et tests via harness `MatDialogHarness`.
+
+### 138. Comment gérer les notifications (toasts) et le feedback utilisateur de façon centralisée ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Un `NotificationService` (signal d'une liste de messages) rendu par un composant global (aria-live, empilement, auto-dismiss configurable), alimenté par l'intercepteur HTTP pour les erreurs, par les stores après les actions, et par les guards ; variantes succès/erreur/info accessibles (contraste, icône + texte), et pas de toast pour les erreurs de formulaire (inline). Snackbar Material en option.
+
+### 139. Comment implémenter un système de permissions de fonctionnalités (feature flags) côté Angular ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Un service chargé à l'initialisation (ou en flux temps réel via SSE/SDK LaunchDarkly/Unleash) exposant `isEnabled(flag)` en signal, une directive `*appFeature="'new-checkout'"`, des guards `canMatch` pour router vers l'ancienne ou la nouvelle route, et `@defer (when flag())` pour ne pas charger le code inactif. Les flags ne remplacent pas l'autorisation et doivent être nettoyés une fois généralisés.
+
+### 140. Comment gérer l'état des formulaires longs : brouillons, sauvegarde automatique, navigation ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Sauvegarde automatique avec `valueChanges` + `debounceTime` + `distinctUntilChanged` (ou effet sur un signal de formulaire) vers l'API ou le stockage local, indicateur d'état (enregistré/en cours/erreur), `canDeactivate` pour avertir avant de quitter avec des changements non sauvegardés, restauration du brouillon au retour, versionnement pour éviter d'écraser des modifications concurrentes (ETag/`If-Match`).
+
+### 141. Comment implémenter un système de recherche avec filtres synchronisés à l'URL ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Les filtres vivent dans les query params (source de vérité partageable, retour arrière fonctionnel) : `withComponentInputBinding` les injecte en `input()`, un `computed` construit la requête, `resource` charge les résultats, et les changements de filtre naviguent (`router.navigate([], { queryParams, queryParamsHandling: 'merge' })`) avec `debounce` pour la saisie. Valider/normaliser les params (zod) et gérer les états vide/erreur/chargement.
+
+### 142. Comment gérer les fichiers (upload avec progression, drag & drop, prévisualisation) ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** `<input type="file">` ou CDK drag-drop, validation côté client (type, taille) puis serveur, `HttpClient.post(url, formData, { reportProgress: true, observe: 'events' })` pour la progression (`HttpEventType.UploadProgress`), signal de progression par fichier, annulation via désabonnement, upload direct vers S3 par URL présignée pour les gros fichiers, prévisualisation via `URL.createObjectURL` (révoquée à la destruction).
+
+### 143. Comment implémenter le temps réel (WebSocket, SSE, STOMP) dans Angular proprement ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Un service encapsulant la connexion (`webSocket` de RxJS ou `@stomp/rx-stomp`, `EventSource` pour SSE) avec reconnexion exponentielle, heartbeat, file des messages sortants pendant la déconnexion, conversion en signaux pour l'affichage, et fermeture à la destruction. Authentifier via cookie/jeton au handshake, gérer le multi-onglets (BroadcastChannel) et tester avec un serveur mock.
+
+### 144. Comment gérer les thèmes (clair/sombre) et les préférences utilisateur ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Variables CSS définies par un attribut sur `html` (`data-theme`) ou `color-scheme` avec `prefers-color-scheme` par défaut, un service à signal persistant le choix (localStorage, ou profil serveur), `light-dark()` CSS, thèmes Material via `mat.theme` avec `color-scheme`, et transitions douces. Éviter le flash au chargement (script inline dans `index.html` appliquant le thème avant le rendu, compatible SSR).
+
+### 145. Comment gérer les erreurs de chunk loading (`ChunkLoadError`) après un déploiement ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Après un déploiement, les anciens chunks hachés disparaissent et les navigations lazy échouent. Solutions : intercepter `ChunkLoadError` dans le `ErrorHandler` ou `router.events` (`NavigationError`) et recharger la page une fois, `SwUpdate` pour détecter les nouvelles versions et proposer le rechargement, conserver les anciens assets quelques heures côté serveur/CDN, et versionner `index.html` en `no-cache`.
+
+### 146. Comment implémenter un « undo/redo » ou une historisation d'état avec Signals ?
+`🟠 Intermédiaire` · Sujet : **Patterns**
+
+**Réponse :** Un store où chaque modification pousse l'état précédent (immuable) dans une pile `past` et vide `future` ; `undo` déplace vers `future`, `redo` l'inverse ; signaux `canUndo`/`canRedo` en `computed` ; limiter la taille de l'historique ; regrouper les modifications rapides (debounce) ; et sérialiser si persistance nécessaire. L'immuabilité des mises à jour de signaux rend ce pattern trivial.
+
+### 147. Comment migrer une application AngularJS (1.x) ou Angular ancien (v8-12) vers Angular moderne ?
+`🟠 Intermédiaire` · Sujet : **Migration**
+
+**Réponse :** AngularJS : hybride via `@angular/upgrade` (ngUpgrade) composant par composant, ou réécriture par feature derrière un routage partagé (strangler). Angular ancien : mises à jour majeures successives avec `ng update` (chaque étape testée), puis migrations automatiques (standalone, control flow, `inject`, signal inputs), suppression des dépendances abandonnées, adoption progressive des signaux et de OnPush. Prioriser une suite de tests E2E avant de commencer.
+
+### 148. Comment migrer de NgRx Store classique vers SignalStore progressivement ?
+`🟠 Intermédiaire` · Sujet : **Migration**
+
+**Réponse :** Cohabiter : conserver le Store global pour les états transverses et créer des SignalStores par feature pour les nouveaux écrans ; exposer les sélecteurs du Store en signaux (`store.selectSignal`) pour uniformiser la consommation ; remplacer les effets par `rxMethod` ou `resource` ; migrer feature par feature avec tests ; supprimer les actions/reducers devenus inutiles. Éviter la double source de vérité pendant la transition.
+
+### 149. Comment fonctionne le rendu côté serveur avec des données préchargées et le `TransferState` en détail ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Pendant le SSR, les réponses `HttpClient` (GET/HEAD par défaut, configurable via `withHttpTransferCacheOptions`) sont sérialisées dans le HTML ; au démarrage client, `HttpClient` les sert depuis ce cache au lieu de refaire l'appel, puis le cache est vidé. Pour des données non HTTP, `TransferState` avec `makeStateKey` permet d'injecter manuellement. Attention à la taille du HTML et aux données sensibles (ne pas transférer ce que l'utilisateur ne doit pas voir).
+
+### 150. Comment gérer le multi-application et le partage de code entre une app publique SSR et un back-office SPA ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Workspace ou monorepo avec bibliothèques partagées (modèle, client API généré, UI), deux applications aux configurations distinctes (SSR + prerender pour le site public ; SPA CSR pour le back-office), pipelines séparés, design system commun, et règles de frontières pour que le back-office n'importe pas de code SSR-spécifique et inversement.
+
+### 151. Quelles sont les erreurs de conception les plus fréquentes dans les projets Angular et comment les éviter ?
+`🟠 Intermédiaire` · Sujet : **Angular**
+
+**Réponse :** Logique métier dans les composants (déplacer dans des services/stores), `subscribe` sans désabonnement, `any` généralisé, composants géants, `providedIn: 'root'` pour de l'état de feature, `ngOnChanges` complexes au lieu de `computed`, `setTimeout` pour « attendre » le rendu, `::ng-deep` partout, appels HTTP dans les constructeurs, absence de OnPush, et tests qui vérifient l'implémentation. Des revues avec checklist et des règles ESLint préviennent la plupart.
